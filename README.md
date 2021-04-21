@@ -24,3 +24,16 @@ This program runs as a separate thread. All data from/to the user program are st
 The user application can be written in any possible language, the only requirement is to send and receive UDP messages.
 
 This eliminates the need for the application programmer to understand how the Pluto is internally working.
+
+## Prerequisites
+
+to install all required libraries run: ./prepare_ubuntu_pluto
+
+## Build and run
+
+Building the software: make
+
+Run the software:  ./pluto
+
+You can run it as normal use, no root access required.
+
