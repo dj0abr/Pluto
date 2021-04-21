@@ -28,7 +28,71 @@
 
 #include "pluto.h"
 
+void *rxproc(void *pdata);
+
+pthread_t rx_pid = 0;
+int samps = 0;
+
+void timer1s()
+{
+    printf("samples: %d\n",samps);
+    samps=0;
+}
+
 int pluto_create_RXthread()
 {
-    return 0;
+    int ret = pthread_create(&rx_pid,NULL,rxproc, NULL);
+    if(ret)
+    {
+        printf("RX thread NOT started\n");
+        return 0;
+    }
+
+    start_timer(1000, timer1s);
+
+    return 1;
+}
+
+void *rxproc(void *pdata)
+{
+    pthread_detach(pthread_self());
+    printf("RX thread started\n");
+
+    iio_buffer *rxbuf = iio_device_create_buffer(rxdev, PLUTO_RXBUFSIZE, false);
+
+    while(keeprunning)
+    {
+        // === RX from Pluto ===
+        // read new data into rx buffer
+		ssize_t nbytes_rx = iio_buffer_refill(rxbuf);
+		if (nbytes_rx > 0) 
+        {    
+            //printf("rxed %ld samples\n",nbytes_rx);
+            ptrdiff_t p_inc = iio_buffer_step(rxbuf);
+            char *p_start = (char *)iio_buffer_first(rxbuf, rx0_i);
+            char *p_end = (char *)iio_buffer_end(rxbuf);
+            int size = (p_end - p_start) / p_inc;
+            int16_t *pibuf = (int16_t *)malloc(size * sizeof(int16_t));
+            int16_t *pqbuf = (int16_t *)malloc(size * sizeof(int16_t));
+            int16_t *pi = pibuf;
+            int16_t *pq = pqbuf;
+
+            for (char *p_dat = p_start; p_dat < p_end; p_dat += p_inc) 
+            {
+                *pi++ = ((int16_t*)p_dat)[0]; // Real (I)
+                *pq++ = ((int16_t*)p_dat)[1]; // Imag (Q)
+                samps++;
+            }
+
+            // received data are in pibuf and pqbuf
+            // do something with this data
+
+            free(pibuf);
+            free(pqbuf);
+        }
+    }
+
+    if (rxbuf) iio_buffer_destroy(rxbuf);
+    printf("RX thread stopped\n");
+    pthread_exit(NULL);
 }

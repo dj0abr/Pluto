@@ -28,7 +28,32 @@
 
 #include "pluto.h"
 
+void *txproc(void *pdata);
+
+pthread_t tx_pid = 0;
+
 int pluto_create_TXthread()
 {
-    return 0;
+    int ret = pthread_create(&tx_pid,NULL,txproc, NULL);
+    if(ret)
+    {
+        printf("TX thread NOT started\n");
+        return 0;
+    }
+
+    return 1;
+}
+
+void *txproc(void *pdata)
+{
+    pthread_detach(pthread_self());
+
+    printf("TX thread started\n");
+    while(keeprunning)
+    {
+
+    }
+
+    printf("TX thread stopped\n");
+    pthread_exit(NULL);
 }

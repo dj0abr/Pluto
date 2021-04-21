@@ -30,7 +30,7 @@
 
 char pluto_context_name[50];
 
-int pluto_find()
+int pluto_get_IP(char *url_IP)
 {
     // === connect Pluto at a given IP address ===
     
@@ -41,23 +41,15 @@ int pluto_find()
     {
         // we have a valid pluto IP continue using this IP
         sprintf(pluto_context_name,"ip:%s",pluto_ip);
-        printf("search PLUTO at IP: <%s>\n",pluto_context_name);
-        if(setup_pluto() == 1)
-        {
-            if(pluto_create_RXthread() == 1)
-            {
-                if(pluto_create_TXthread() == 1)
-                {
-                    printf("PLUTO initialized: OK\n");
-                    return 1;
-                }
-            }
-        }
-        printf("PLUTO not found at IP: %s\n",pluto_context_name);
+        printf("searching Pluto on %s\n",pluto_context_name);
+        return 1;
     }
-    
-    // === connect Pluto via USB ===
-    printf("search PLUTO at USB\n");
+    printf("cannot evaluate %s\n",url_IP);
+    return 0;
+}
+
+int pluto_get_USB()
+{    
     char s[500];
     snprintf(s,499,"iio_info -s 2>/dev/null");
     s[499] = 0;
@@ -77,26 +69,14 @@ int pluto_find()
                     strncpy(pluto_context_name,hp,49);
                     pluto_context_name[49] = 0;
                     printf("PLUTO found: <%s>\n",pluto_context_name);
-                    if(setup_pluto() == 1)
-                    {
-                        if(pluto_create_RXthread() == 1)
-                        {
-                            if(pluto_create_TXthread() == 1)
-                            {
-                                printf("PLUTO initialized: OK\n");
-                                return 1;
-                            }
-                        }
-                    }
-                    printf("PLUTO found, but cannot initialize\n");
-                    return 0;
+                    return 1;
                 }
             }
         }
         pclose(fp);
     }
     else
-        printf("ERROR: cannot execute iio_info command\n");
+        printf("cannot execute iio_info command\n");
     
     printf("no PLUTO found\n");
     return 0;

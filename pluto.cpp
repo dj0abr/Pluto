@@ -35,10 +35,63 @@
 
 #include "pluto.h"
 
+// === Pluto Definitions ===
+// IP Adress (leave empty if connected via USB)
 char *pluto_ip = {"192.168.10.99"};
+
+// RX configuration
+stream_cfg rxcfg = {
+    MHz(435),           // RX frequencxy (LO)
+    MHz(3.6),           // RX sample rate
+    kHz(100),           // RX Bandwidth
+    "A_BALANCED",       // RF port
+    0.0                 // out power nut used
+};
+
+// TX configuration
+stream_cfg txcfg = {
+    MHz(435),           // RX frequencxy (LO)
+    MHz(3.6),           // RX sample rate
+    kHz(100),           // RX Bandwidth
+    "A",                // RF port
+    0.0                 // out power 0 dBm
+};
+
+// looks like TX and RX sampling rate have to be equal. To be checked !
+
+int keeprunning = 1;
 
 int main()
 {
     // find a pluto connected via USB or Ethernet
-    pluto_find();
+    int res = pluto_get_IP(pluto_ip);
+    if(res) res = pluto_setup();
+
+    if(!res) 
+    {
+        printf("Pluto not found on ETH\n");
+        // Pluto not found on Ethernet, try with USB
+        res = pluto_get_USB();
+        if(res) res = pluto_setup();
+        if(!res)
+        {
+            printf("Pluto not found, exit program\n");
+            exit(0);
+        }
+    }
+
+    // Pluto found, create RX and TX threads
+    res = pluto_create_RXthread();
+    if(res) pluto_create_TXthread();
+    if(!res) 
+    {
+        printf("connot create threads, exit program\n");
+        exit(0);
+    }
+
+    sleep(5);
+
+    keeprunning = 0;
+    usleep(100000);
+    pluto_close();
 }

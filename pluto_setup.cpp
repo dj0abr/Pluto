@@ -28,7 +28,140 @@
 
 #include "pluto.h"
 
-int setup_pluto()
+int pluto_getContext();
+int pluto_setup_RX();
+int pluto_setup_TX();
+
+// Pluto context
+static struct iio_context *ctx   = NULL;
+
+// Streaming devices
+struct iio_device *rxdev;
+struct iio_device *txdev;
+
+// channels
+struct iio_channel *rx0_i;
+struct iio_channel *rx0_q;
+struct iio_channel *tx0_i;
+struct iio_channel *tx0_q;
+
+int pluto_setup()
 {
-    return 0;
+    int res = pluto_getContext();
+    if(!res) return 0;
+    res = pluto_setup_RX();
+    if(!res) return 0;
+    res = pluto_setup_TX();
+    return res;
+}
+
+int pluto_getContext()
+{
+    ctx = iio_create_context_from_uri(pluto_context_name);
+    CHKERR(ctx, "FAILED: Acquiring pluto's IIO context\n");
+
+    unsigned int nr_devices = iio_context_get_devices_count(ctx);
+    CHKERR(nr_devices,"no pluto devices found\n");
+
+    return 1;
+}
+
+int pluto_setup_RX()
+{
+    int ret; 
+
+    printf("Pluto %s, setup RX Freq=%d Rate=%d BW=%d\n",pluto_context_name,rxcfg.lo_hz,rxcfg.fs_hz,rxcfg.bw_hz);
+
+    // find receiver device
+    rxdev = iio_context_find_device(ctx, "cf-ad9361-lpc");
+    CHKERR(rxdev, "no RX streaming devices found\n");
+
+    // get physical device
+    struct iio_device *physdev =  iio_context_find_device(ctx, "ad9361-phy");
+    CHKERR(physdev, "RX: no physical device found\n");
+
+    // find channel
+    struct iio_channel *chn = iio_device_find_channel(physdev, "voltage0", false);
+    CHKERR(chn, "RX: channel not found\n");
+
+    // configure channel
+    ret = iio_channel_attr_write(chn, "rf_port_select", rxcfg.rfport);
+    CHKERR(ret, "RX: set rf_port_select failed\n");
+    ret = iio_channel_attr_write_longlong(chn, "rf_bandwidth", rxcfg.bw_hz);
+    CHKERR(ret?0:1, "RX: set rf_bandwidth failed\n");
+    ret = iio_channel_attr_write_longlong(chn, "sampling_frequency", rxcfg.fs_hz);
+    CHKERR(ret?0:1, "RX: set sampling_frequency failed\n");
+
+    // get local oscillator channel and set frequency
+    struct iio_channel *chnlo = iio_device_find_channel(physdev, "altvoltage0", true);
+    CHKERR(chn, "RX: get LO channel failed\n");
+    ret = iio_channel_attr_write_longlong(chnlo, "frequency", rxcfg.lo_hz);
+    CHKERR(ret?0:1, "RX: set frequency failed\n");
+
+    // get streaming channels
+    ret = get_ad9361_streaming_channel(ctx, 0, rxdev, 0, &rx0_i);
+    CHKERR(ret, "RX: get I channel failed\n");
+    ret = get_ad9361_streaming_channel(ctx, 0, rxdev, 1, &rx0_q);
+    CHKERR(ret, "RX: get Q channel failed\n");
+
+    // enable streaming channels
+    iio_channel_enable(rx0_i);
+	iio_channel_enable(rx0_q);
+
+    return 1;
+}
+
+int pluto_setup_TX()
+{
+    int ret;
+
+    printf("Pluto %s, setup TX Freq=%d Rate=%d BW=%d\n",pluto_context_name,txcfg.lo_hz,txcfg.fs_hz,txcfg.bw_hz);
+
+    // find transmitter device
+    txdev = iio_context_find_device(ctx, "cf-ad9361-dds-core-lpc");
+    CHKERR(txdev, "no TX streaming devices found\n");
+
+    // get physical device
+    struct iio_device *physdev =  iio_context_find_device(ctx, "ad9361-phy");
+    CHKERR(physdev, "TX: no physical device found\n");
+
+    // find channel
+    struct iio_channel *chn = iio_device_find_channel(physdev, "voltage0", true);
+    CHKERR(chn, "TX: channel not found\n");
+
+    // configure channel
+    ret = iio_channel_attr_write(chn, "rf_port_select", txcfg.rfport);
+    CHKERR(ret, "TX: set rf_port_select failed\n");
+    ret = iio_channel_attr_write_longlong(chn, "rf_bandwidth", txcfg.bw_hz);
+    CHKERR(ret?0:1, "TX: set rf_bandwidth failed\n");
+    ret = iio_channel_attr_write_longlong(chn, "sampling_frequency", txcfg.fs_hz);
+    CHKERR(ret?0:1, "TX: set sampling_frequency failed\n");
+    ret = iio_channel_attr_write_double(chn, "hardwaregain", txcfg.outpwr_dBm - 10);
+    CHKERR(ret?0:1, "TX: set hardwaregain failed\n");
+
+    // get local oscillator channel and set frequency ??? was altvoltage0, does it still work with "1" ???
+    struct iio_channel *chnlo = iio_device_find_channel(physdev, "altvoltage1", true);
+    CHKERR(chn, "TX: get LO channel failed\n");
+    ret = iio_channel_attr_write_longlong(chnlo, "frequency", txcfg.lo_hz);
+    CHKERR(ret?0:1, "TX: set frequency failed\n");
+
+    // get streaming channels
+    ret = get_ad9361_streaming_channel(ctx, 1, txdev, 0, &tx0_i);
+    CHKERR(ret, "TX: get I channel failed\n");
+    ret = get_ad9361_streaming_channel(ctx, 1, txdev, 1, &tx0_q);
+    CHKERR(ret, "TX: get Q channel failed\n");
+
+    // enable streaming channels
+    iio_channel_enable(tx0_i);
+	iio_channel_enable(tx0_q);
+
+    return 1;
+}
+
+void pluto_close()
+{
+   	if (rx0_i) iio_channel_disable(rx0_i);
+	if (rx0_q) iio_channel_disable(rx0_q);
+
+	if (ctx) iio_context_destroy(ctx);
 }

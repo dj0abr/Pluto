@@ -28,3 +28,17 @@
 
 #include "pluto.h"
 
+int get_ad9361_streaming_channel(struct iio_context *ctx, int rxtx, struct iio_device *dev, int iq, struct iio_channel **chn)
+{
+    char s[50];
+    sprintf(s,"voltage%d",iq);
+
+	*chn = iio_device_find_channel(dev, s, rxtx);
+	if (!*chn)
+    {
+        sprintf(s,"altvoltage%d",iq);
+		*chn = iio_device_find_channel(dev, s, rxtx);
+    }
+
+	return *chn==NULL?0:1;
+}
