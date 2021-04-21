@@ -6,6 +6,9 @@ easy to use RX and TX handler for the Adalm - Pluto
 running on almost any Linux distribution and
 on small SBCs (Raspberry, Odroid..) as long as the SBC is fast enough to handle the sample rates.
 
+Why just Linux ? 
+Because its one of my holy rules to NEVER use proprietary operating systems.
+
 ## this is work in progress
 do not use these files before this warning is removed
 
