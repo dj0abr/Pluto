@@ -1,6 +1,11 @@
 # Pluto
 easy to use RX and TX handler for the Adalm - Pluto
 
+## for LINUX only
+
+running on almost any Linux distribution and
+on small SBCs (Raspberry, Odroid..) as long as the SBC is fast enough to handle the sample rates.
+
 ## this is work in progress
 do not use these files before this warning is removed
 
