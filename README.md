@@ -10,7 +10,10 @@ Why just Linux ?
 Because its one of my holy rules to NEVER use proprietary operating systems infested with ads and trackers which are sending my personal data around the globe.
 
 ## this is work in progress
-do not use these files before this warning is removed
+first working version: 
+#define CROSSBANDREPEATER
+everything received on the RX frequency will be sent out on the TX frequency
+can be tested with two USB transceivers
 
 ## Overview
 
