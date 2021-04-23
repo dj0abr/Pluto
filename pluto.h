@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <signal.h>
@@ -10,8 +11,17 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
+#include "kmlib/km_helper.h"
+#include "kmlib/kmfifo.h"
+#include "udp/udp.h"
+
+#define UDP_SAMPLEPORT	49808
+#define UDPFRAG 60000			// size of an UDP fragment
+
+#define RX_DECIMATION 1
+
 #define PLUTO_RXBUFSIZE 360000  // no of samples per buffer call
-#define PLUTO_TXBUFSIZE 2500000  // no of samples per buffer call
+#define PLUTO_TXBUFSIZE 1800000  // no of samples per buffer call, space for 0.5s
 
 #define kHz(n)  (n * 1000)
 #define MHz(n)  (n * 1000000)
@@ -39,8 +49,8 @@ void stop_timer(int timer);
 
 extern char *pluto_ip;
 extern char pluto_context_name[];
-extern stream_cfg rxcfg;
-extern stream_cfg txcfg;
+extern stream_cfg pluto_rxcfg;
+extern stream_cfg pluto_txcfg;
 extern int keeprunning;
 extern struct iio_device *rxdev;
 extern struct iio_device *txdev;
@@ -48,3 +58,5 @@ extern struct iio_channel *rx0_i;
 extern struct iio_channel *rx0_q;
 extern struct iio_channel *tx0_i;
 extern struct iio_channel *tx0_q;
+extern char *myIP;
+extern int fifoid;

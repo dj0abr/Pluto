@@ -70,7 +70,7 @@ int pluto_setup_RX()
 {
     int ret; 
 
-    printf("Pluto %s, setup RX Freq=%d Rate=%d BW=%d\n",pluto_context_name,rxcfg.lo_hz,rxcfg.fs_hz,rxcfg.bw_hz);
+    printf("Pluto %s, setup RX Freq=%u Rate=%d BW=%d\n",pluto_context_name,pluto_rxcfg.lo_hz,pluto_rxcfg.fs_hz,pluto_rxcfg.bw_hz);
 
     // find receiver device
     rxdev = iio_context_find_device(ctx, "cf-ad9361-lpc");
@@ -85,17 +85,17 @@ int pluto_setup_RX()
     CHKERR(chn, "RX: channel not found\n");
 
     // configure channel
-    ret = iio_channel_attr_write(chn, "rf_port_select", rxcfg.rfport);
+    ret = iio_channel_attr_write(chn, "rf_port_select", pluto_rxcfg.rfport);
     CHKERR(ret, "RX: set rf_port_select failed\n");
-    ret = iio_channel_attr_write_longlong(chn, "rf_bandwidth", rxcfg.bw_hz);
+    ret = iio_channel_attr_write_longlong(chn, "rf_bandwidth", pluto_rxcfg.bw_hz);
     CHKERR(ret?0:1, "RX: set rf_bandwidth failed\n");
-    ret = iio_channel_attr_write_longlong(chn, "sampling_frequency", rxcfg.fs_hz);
+    ret = iio_channel_attr_write_longlong(chn, "sampling_frequency", pluto_rxcfg.fs_hz);
     CHKERR(ret?0:1, "RX: set sampling_frequency failed\n");
 
     // get local oscillator channel and set frequency
     struct iio_channel *chnlo = iio_device_find_channel(physdev, "altvoltage0", true);
     CHKERR(chn, "RX: get LO channel failed\n");
-    ret = iio_channel_attr_write_longlong(chnlo, "frequency", rxcfg.lo_hz);
+    ret = iio_channel_attr_write_longlong(chnlo, "frequency", pluto_rxcfg.lo_hz);
     CHKERR(ret?0:1, "RX: set frequency failed\n");
 
     // get streaming channels
@@ -115,7 +115,7 @@ int pluto_setup_TX()
 {
     int ret;
 
-    printf("Pluto %s, setup TX Freq=%d Rate=%d BW=%d\n",pluto_context_name,txcfg.lo_hz,txcfg.fs_hz,txcfg.bw_hz);
+    printf("Pluto %s, setup TX Freq=%u Rate=%d BW=%d\n",pluto_context_name,pluto_txcfg.lo_hz,pluto_txcfg.fs_hz,pluto_txcfg.bw_hz);
 
     // find transmitter device
     txdev = iio_context_find_device(ctx, "cf-ad9361-dds-core-lpc");
@@ -130,19 +130,19 @@ int pluto_setup_TX()
     CHKERR(chn, "TX: channel not found\n");
 
     // configure channel
-    ret = iio_channel_attr_write(chn, "rf_port_select", txcfg.rfport);
+    ret = iio_channel_attr_write(chn, "rf_port_select", pluto_txcfg.rfport);
     CHKERR(ret, "TX: set rf_port_select failed\n");
-    ret = iio_channel_attr_write_longlong(chn, "rf_bandwidth", txcfg.bw_hz);
+    ret = iio_channel_attr_write_longlong(chn, "rf_bandwidth", pluto_txcfg.bw_hz);
     CHKERR(ret?0:1, "TX: set rf_bandwidth failed\n");
-    ret = iio_channel_attr_write_longlong(chn, "sampling_frequency", txcfg.fs_hz);
+    ret = iio_channel_attr_write_longlong(chn, "sampling_frequency", pluto_txcfg.fs_hz);
     CHKERR(ret?0:1, "TX: set sampling_frequency failed\n");
-    ret = iio_channel_attr_write_double(chn, "hardwaregain", txcfg.outpwr_dBm - 10);
+    ret = iio_channel_attr_write_double(chn, "hardwaregain", pluto_txcfg.outpwr_dBm - 10);
     CHKERR(ret?0:1, "TX: set hardwaregain failed\n");
 
     // get local oscillator channel and set frequency ??? was altvoltage0, does it still work with "1" ???
     struct iio_channel *chnlo = iio_device_find_channel(physdev, "altvoltage1", true);
     CHKERR(chn, "TX: get LO channel failed\n");
-    ret = iio_channel_attr_write_longlong(chnlo, "frequency", txcfg.lo_hz);
+    ret = iio_channel_attr_write_longlong(chnlo, "frequency", pluto_txcfg.lo_hz);
     CHKERR(ret?0:1, "TX: set frequency failed\n");
 
     // get streaming channels

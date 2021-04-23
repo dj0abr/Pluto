@@ -40,29 +40,62 @@
 char *pluto_ip = {"192.168.10.99"};
 
 // RX configuration
-stream_cfg rxcfg = {
-    MHz(435),           // RX frequencxy (LO)
+stream_cfg pluto_rxcfg = {
+    MHz(145),           // RX frequencxy (LO)
     MHz(3.6),           // RX sample rate
-    kHz(100),           // RX Bandwidth
+    kHz(1000),          // RX Bandwidth
     "A_BALANCED",       // RF port
     0.0                 // out power nut used
 };
 
 // TX configuration
-stream_cfg txcfg = {
-    MHz(435),           // RX frequencxy (LO)
-    MHz(3.6),           // RX sample rate
-    kHz(100),           // RX Bandwidth
+stream_cfg pluto_txcfg = {
+    MHz(435),   // TX frequencxy (LO)
+    MHz(3.6),           // TX sample rate
+    kHz(100),           // TX Bandwidth
     "A",                // RF port
-    0.0                 // out power 0 dBm
+    8.0                 // out power 0 dBm
 };
 
 // looks like TX and RX sampling rate have to be equal. To be checked !
 
-int keeprunning = 1;
+char *myIP = NULL;
+
+#define CROSSBANDREPEATER
+
+#ifdef CROSSBANDREPEATER
+int testsock;
+int fifoid;
+void rxfunc(uint8_t* pdata, int len, struct sockaddr_in* rxsock)
+{
+    //printf("udprx: %d bytes\n",len);
+    write_fifo(fifoid, pdata, len);
+}
+#endif 
+
+void close_program()
+{
+    printf("closing threads\n");
+    keeprunning = 0;
+    usleep(1000000);    // give the threads some time to stop
+    pluto_close();
+    printf("end program\n");
+    exit(0);
+}
 
 int main()
 {
+    install_signal_handler(close_program);
+
+    // read own IP address
+    myIP = ownIP();
+    if(myIP == NULL || strlen(myIP) < 7)
+    {
+        printf("cannot get own IP adress. Network failure. Exit program\n");
+        exit(0);
+    }
+    printf("local IP adress: <%s>\n",myIP);
+
     // find a pluto connected via USB or Ethernet
     int res = pluto_get_IP(pluto_ip);
     if(res) res = pluto_setup();
@@ -80,8 +113,17 @@ int main()
         }
     }
 
+    // create a FIFO for the transmitter
+    // all data from this fifo will be sent onthe TX frequency
+    fifoid = create_fifo(pluto_rxcfg.fs_hz/UDPFRAG+1, UDPFRAG); // space for 1s of samples
+
+    #ifdef CROSSBANDREPEATER
+    // TEST ONLY: self reception
+    UdpRxInit(&testsock, UDP_SAMPLEPORT, rxfunc, &keeprunning);
+    #endif
+
     // Pluto found, create RX and TX threads
-    res = pluto_create_RXthread();
+    pluto_create_RXthread();
     if(res) pluto_create_TXthread();
     if(!res) 
     {
@@ -89,9 +131,6 @@ int main()
         exit(0);
     }
 
-    sleep(5);
-
-    keeprunning = 0;
-    usleep(100000);
-    pluto_close();
+    // nothing to do, program can be terminated by Ctl-C
+    while(1) sleep(1);
 }

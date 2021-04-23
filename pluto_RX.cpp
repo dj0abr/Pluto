@@ -29,15 +29,9 @@
 #include "pluto.h"
 
 void *rxproc(void *pdata);
+void send_buffer(uint8_t *pdat, int len);
 
 pthread_t rx_pid = 0;
-int samps = 0;
-
-void timer1s()
-{
-    printf("samples: %d\n",samps);
-    samps=0;
-}
 
 int pluto_create_RXthread()
 {
@@ -48,8 +42,6 @@ int pluto_create_RXthread()
         return 0;
     }
 
-    start_timer(1000, timer1s);
-
     return 1;
 }
 
@@ -59,40 +51,99 @@ void *rxproc(void *pdata)
     printf("RX thread started\n");
 
     iio_buffer *rxbuf = iio_device_create_buffer(rxdev, PLUTO_RXBUFSIZE, false);
+    if (!rxbuf) printf("Could not create RX buffer\n");
 
-    while(keeprunning)
+    while(keeprunning && rxbuf)
     {
         // === RX from Pluto ===
         // read new data into rx buffer
-		ssize_t nbytes_rx = iio_buffer_refill(rxbuf);
-		if (nbytes_rx > 0) 
-        {    
-            //printf("rxed %ld samples\n",nbytes_rx);
-            ptrdiff_t p_inc = iio_buffer_step(rxbuf);
-            char *p_start = (char *)iio_buffer_first(rxbuf, rx0_i);
-            char *p_end = (char *)iio_buffer_end(rxbuf);
-            int size = (p_end - p_start) / p_inc;
-            int16_t *pibuf = (int16_t *)malloc(size * sizeof(int16_t));
-            int16_t *pqbuf = (int16_t *)malloc(size * sizeof(int16_t));
-            int16_t *pi = pibuf;
-            int16_t *pq = pqbuf;
-
-            for (char *p_dat = p_start; p_dat < p_end; p_dat += p_inc) 
-            {
-                *pi++ = ((int16_t*)p_dat)[0]; // Real (I)
-                *pq++ = ((int16_t*)p_dat)[1]; // Imag (Q)
-                samps++;
-            }
-
-            // received data are in pibuf and pqbuf
-            // do something with this data
-
-            free(pibuf);
-            free(pqbuf);
+		int nbytes_rx = (int)iio_buffer_refill(rxbuf);
+        if (nbytes_rx > 0) 
+        {
+            // nbytes_rx have been filled into rxbuf
+            // each sample is 4 Bytes long: 2xI and 2xQ (signed short 16 bit values)
+            // send these bytes via UDP, fragmented into chunks of max UDPFRAG
+            uint8_t *pdat = (uint8_t *)iio_buffer_first(rxbuf, rx0_i);
+            send_buffer(pdat, (int)nbytes_rx);
         }
+        else
+            usleep(10000);
     }
 
     if (rxbuf) iio_buffer_destroy(rxbuf);
     printf("RX thread stopped\n");
     pthread_exit(NULL);
+}
+
+void send_buffer(uint8_t *pdat, int len)
+{
+    // pdat ... start of the buffer
+    // each sample has 4 bytes
+    // step through the buffer with a step size of (RX_DECIMATION * 4)
+
+    // stepsize through the samples
+    int step = (RX_DECIMATION * 4);
+    int ubuflen = len;
+    uint8_t *ubuf = pdat;
+
+    if(RX_DECIMATION > 1)
+    {
+        // create the new buffer to send
+        ubuflen = len / RX_DECIMATION;
+        ubuf = (uint8_t *)malloc(ubuflen);
+
+        // fill this buffer with the samples
+        uint8_t *d = ubuf;
+        for(int i=0; i<len; i+=step)
+        {
+            // copy one sample (4 bytes)
+            *d++ = pdat[i];
+            *d++ = pdat[i+1];
+            *d++ = pdat[i+2];
+            *d++ = pdat[i+3];
+
+            // security check
+            if(d > (ubuf + ubuflen))
+            {
+                printf("ATTENTION: ubuf overrun. Stop program\n");
+                exit(0);
+            }
+        }
+    }
+
+    // here we have the received samples, decimated by RX_DECIMATION
+    // in ubuf with length ubuflen
+
+    // send these bytes via UDP, fragmented into chunks of max UDPFRAG
+    int bytesleft = ubuflen;
+    uint8_t *p_dat = ubuf;
+    uint8_t *p_end = ubuf + ubuflen;
+    while(1)
+    {
+        if(bytesleft <= UDPFRAG)
+        {
+            //printf("last %d\n",bytesleft);
+            // only a single udp fragment left, send all
+            sendUDP(myIP, UDP_SAMPLEPORT, p_dat, bytesleft);
+            break;  // finished
+        }
+
+        //printf("left %d\n",bytesleft);
+
+        // send a complete udp fragment
+        sendUDP(myIP, UDP_SAMPLEPORT, p_dat, UDPFRAG);
+        bytesleft -= UDPFRAG;
+        p_dat += UDPFRAG;
+        if(bytesleft == 0) break;
+
+        // security check for overrun
+        if(p_dat > p_end)
+        {
+            printf("ATTENTION: overrun in UDP send routine. Stop program\n");
+            exit(0);
+        }
+    }
+
+    if(RX_DECIMATION > 1)
+        free(ubuf);
 }
