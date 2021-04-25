@@ -115,14 +115,12 @@ bool cfg_ad9361_streaming_ch(struct iio_context *ctx, stream_cfg *cfg, enum iode
 	struct iio_channel *chn = NULL;
 
 	// Configure phy and lo channels
-	printf("* Acquiring AD9361 phy channel %d\n", chid);
 	if (!get_phy_chan(ctx, type, chid, &chn)) {	return false; }
 	wr_ch_str(chn, "rf_port_select",     cfg->rfport);
 	wr_ch_lli(chn, "rf_bandwidth",       cfg->bw_hz);
 	wr_ch_lli(chn, "sampling_frequency", cfg->fs_hz);
 
 	// Configure LO channel
-	printf("* Acquiring AD9361 %s lo channel\n", type == TX ? "TX" : "RX");
 	if (!get_lo_chan(ctx, type, &chn)) { return false; }
 	wr_ch_lli(chn, "frequency", cfg->lo_hz);
 	return true;

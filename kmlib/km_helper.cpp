@@ -65,7 +65,7 @@ void (*sigfunc)();
 // signal handler
 void sighandler(int signum)
 {
-    printf("\n\nprogram stopped by signal\n");
+    //printf("\n\nprogram stopped by signal\n");
 
     (*sigfunc)();
 }

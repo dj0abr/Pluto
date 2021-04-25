@@ -73,7 +73,7 @@ void UdpRxInit(int *sock, int port, void (*rxfunc)(uint8_t *, int, struct sockad
 		exit(0);
 	}
 
-    printf("port %d sucessfully bound\n", port);
+    //printf("port %d sucessfully bound\n", port);
 	
 	// port sucessfully bound
 	// create the receive thread

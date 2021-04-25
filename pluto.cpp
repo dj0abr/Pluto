@@ -27,7 +27,7 @@
 * This is a stand alone program. It connects to the pluto and handles
 * all RX and TX.
 * The final data are transfered to/from the application via an UDP port
-* The application has nothing to do with the Pluto, it just streams
+* Your application itself has nothing to do with the Pluto, it just streams
 * the data via UDP
 * =====================================================================
 * 
@@ -37,7 +37,7 @@
 
 char *myIP;
 char destIP[20] = UDP_IPADDRESS;
-char pluto_ip[20] = {""}; // enter IP address if pluto is connected via ethernet
+char pluto_ip[20] = PLUTO_IPADDRESS;
 int udpsock = 0;
 int udpRXfifo = 0;
 
@@ -49,7 +49,7 @@ void udprxfunc(uint8_t *buffer, int len, struct sockaddr_in* fromsock)
 
 void close_program()
 {
-    printf("got Ctrl-C\n");
+    printf("\nCtrl-C pressed\n");
     keeprunning = 0;
 }
 
@@ -75,7 +75,6 @@ int main ()
 		}
 	}
     printf("application IP adress: <%s>\n",myIP);
-	
 
     // find a pluto connected via USB or Ethernet
     res = pluto_get_IP(pluto_ip);
@@ -93,10 +92,13 @@ int main ()
 
 	udpRXfifo = create_fifo(4*(4 * BUFSIZE/UDPFRAG), UDPFRAG);
 	UdpRxInit(&udpsock,UDP_RXSAMPLEPORT,udprxfunc,&keeprunning);
+	printf("Samples App->Pluto will be sent via UDP port UDP_RXSAMPLEPORT: %d\n",UDP_RXSAMPLEPORT);
+	printf("Samples Pluto->App will be sent via UDP port UDP_TXSAMPLEPORT: %d\n",UDP_TXSAMPLEPORT);
+	printf("Status messages will be sent via UDP to port UDP_STATUSPORT  : %d\n",UDP_STATUSPORT);
 
 	pluto_setup();
 
-	printf("* Starting IO streaming (press CTRL+C to cancel)\n");
+	printf("Starting RX/TX streaming (press Ctrl+C to cancel)\n");
 	while (keeprunning)
 	{
 		runloop();

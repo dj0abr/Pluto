@@ -41,6 +41,9 @@
 #define RX_BW		2					// RX bandwidth in MHz
 #define TX_BW		0.1					// TX bandwidth in MHz
 
+// Pluto IP address
+#define PLUTO_IPADDRESS "192.168.10.26"	// if empty, use USB
+
 // ============ INITIALISATION END ==================================
 
 #define UDPFRAG 32768			// size of an UDP fragment
