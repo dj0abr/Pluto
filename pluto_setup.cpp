@@ -49,8 +49,37 @@ struct iio_buffer  *txbuf = NULL;
 stream_cfg rxcfg;
 stream_cfg txcfg;
 
+// fifo status timer
+int fifostat;
+
+void sendfifostat()
+{
+	int fs = fifo_usedspace(udpRXfifo);
+	uint8_t p[4];
+	p[0] = fs >> 24;
+	p[1] = fs >> 16;
+	p[2] = fs >> 8;
+	p[3] = fs & 0xff;
+
+	sendUDP(myIP, UDP_STATUSPORT, p, 4);
+}
+
 void pluto_setup()
 {
+	fifostat = start_timer(1000,sendfifostat);
+
+	// RX stream config
+	rxcfg.bw_hz = MHZ(RX_BW);   	// rx rf bandwidth
+	rxcfg.fs_hz = MHZ(SAMPRATE);   	// rx sample rate
+	rxcfg.lo_hz = MHZ(RX_FREQ); 	// rx rf frequency
+	rxcfg.rfport = "A_BALANCED"; 	// port A (select for rf freq.)
+
+	// TX stream config
+	txcfg.bw_hz = MHZ(TX_BW); 		// tx rf bandwidth
+	txcfg.fs_hz = MHZ(SAMPRATE);   	// tx sample rate (must be same as RX samp rate)
+	txcfg.lo_hz = MHZ(TX_FREQ); 	// tx rf frequency
+	txcfg.rfport = "A"; 			// port A (select for rf freq.)
+
 	ctx = iio_create_context_from_uri(pluto_context_name);
 
 	int devanz = iio_context_get_devices_count(ctx);

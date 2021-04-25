@@ -162,6 +162,5 @@ int fifo_dataavail(int id)
 int fifo_usedspace(int id)
 {
     int us = fifo[id].maxelem - fifo_freespace(id);
-    //printf("fifo:%d used space:%d\n", pipenum, us);
     return us;
 }

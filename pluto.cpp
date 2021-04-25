@@ -36,6 +36,7 @@
 #include "pluto.h"
 
 char *myIP;
+char destIP[20] = UDP_IPADDRESS;
 char pluto_ip[20] = {""}; // enter IP address if pluto is connected via ethernet
 int udpsock = 0;
 int udpRXfifo = 0;
@@ -59,45 +60,39 @@ int main ()
     install_signal_handler(close_program);
 
     // read own IP address
-    myIP = ownIP();
-    if(myIP == NULL || strlen(myIP) < 7)
-    {
-        printf("cannot get own IP adress. Network failure. Exit program\n");
-        exit(0);
-    }
-    printf("local IP adress: <%s>\n",myIP);
+	if(strlen(destIP) >= 7)
+	{
+		myIP = destIP;
+	}
+	else
+	{
+		// use local IP
+		myIP = ownIP();
+		if(myIP == NULL || strlen(myIP) < 7)
+		{
+			printf("cannot get own IP adress. Network failure. Exit program\n");
+			exit(0);
+		}
+	}
+    printf("application IP adress: <%s>\n",myIP);
+	
 
     // find a pluto connected via USB or Ethernet
-    /*int res = pluto_get_IP(pluto_ip);
-    if(res) res = pluto_setup();
-
-    if(!res) */
+    res = pluto_get_IP(pluto_ip);
+    if(!res) 
     {
-        //printf("Pluto not found on ETH\n");
         // Pluto not found on Ethernet, try with USB
         res = pluto_get_USB();
-        //if(res) res = pluto_setup();
         if(!res)
         {
             printf("Pluto not found, exit program\n");
             exit(0);
         }
     }
+	printf("Pluto IP/USB adress: <%s>\n",pluto_context_name);
 
 	udpRXfifo = create_fifo(4*(4 * BUFSIZE/UDPFRAG), UDPFRAG);
 	UdpRxInit(&udpsock,UDP_RXSAMPLEPORT,udprxfunc,&keeprunning);
-
-	// RX stream config
-	rxcfg.bw_hz = MHZ(RX_BW);   	// rx rf bandwidth
-	rxcfg.fs_hz = MHZ(SAMPRATE);   	// rx sample rate
-	rxcfg.lo_hz = MHZ(RX_FREQ); 	// rx rf frequency
-	rxcfg.rfport = "A_BALANCED"; 	// port A (select for rf freq.)
-
-	// TX stream config
-	txcfg.bw_hz = MHZ(TX_BW); 		// tx rf bandwidth
-	txcfg.fs_hz = MHZ(SAMPRATE);   	// tx sample rate (must be same as RX samp rate)
-	txcfg.lo_hz = MHZ(TX_FREQ); 	// tx rf frequency
-	txcfg.rfport = "A"; 			// port A (select for rf freq.)
 
 	pluto_setup();
 

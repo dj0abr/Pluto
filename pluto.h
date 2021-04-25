@@ -23,6 +23,8 @@
 // here are the values which should be set before using this program
 
 // UDP settings
+#define UDP_IPADDRESS	  ""			// IP address of the application.
+										// if empty, the local IP will be used
 #define UDP_TXSAMPLEPORT  40809			// samples from Pluto are send as UDP frames to this port
 #define UDP_RXSAMPLEPORT  40809			// samples received on this port are sent to pluto for transmission
 #define UDP_STATUSPORT	  40810			// this program sends status information

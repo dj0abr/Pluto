@@ -59,6 +59,9 @@ A FIFO is located between the UDP interface and the Pluto's transmitter. By chec
 This program sends the following UDP message every second:
 ```
 Port: UDP_STATUSPORT
-Byte 0: number of frame currently in the fifo
+Byte 0: number of frames currently in the fifo (MSB)
+Byte 1
+Byte 2
+Byte 3: LSB
 ```
 We get a TX underrun if this number goes to 0. The application has to check this number and send new frames (with 32768 bytes each, see above) if this number goes below i.e. 5 or 10. You can experiment how low you can go to reduce latency. If its too low, underrun will happen resulting in transmission losses.

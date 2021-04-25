@@ -41,10 +41,10 @@ int pluto_get_IP(char *url_IP)
     {
         // we have a valid pluto IP continue using this IP
         sprintf(pluto_context_name,"ip:%s",pluto_ip);
-        printf("searching Pluto on %s\n",pluto_context_name);
+        //printf("searching Pluto on %s\n",pluto_context_name);
         return 1;
     }
-    printf("cannot evaluate %s\n",url_IP);
+    //printf("cannot evaluate %s\n",url_IP);
     return 0;
 }
 
@@ -68,7 +68,7 @@ int pluto_get_USB()
                     *he = 0;
                     strncpy(pluto_context_name,hp,49);
                     pluto_context_name[49] = 0;
-                    printf("PLUTO found: <%s>\n",pluto_context_name);
+                    //printf("PLUTO found: <%s>\n",pluto_context_name);
                     return 1;
                 }
             }
@@ -78,6 +78,6 @@ int pluto_get_USB()
     else
         printf("cannot execute iio_info command\n");
     
-    printf("no PLUTO found\n");
+    //printf("no PLUTO found\n");
     return 0;
 }
