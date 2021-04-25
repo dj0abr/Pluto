@@ -9,16 +9,11 @@ on small SBCs (Raspberry, Odroid..) as long as the SBC is fast enough to handle 
 Why just Linux ? 
 Because its one of my holy rules to NEVER use proprietary operating systems infested with ads and trackers which are sending my personal data around the globe.
 
-## this is work in progress
-first working version: 
-everything received on the RX frequency will be sent out on the TX frequency
-can be tested with two USB transceivers
-
 ## Overview
 
 This program connects to a Pluto via USB or Ethernet.
 
-If a Pluto is found, it will be initialized for RX and TX and a couple of handler threads are created.
+If a Pluto is found, it will be initialized for RX and TX. If init is ok, streaming starts immediately.
 This program does all work with the pluto itself, no need to have any understanding of the Pluto or its libraries.
 
 This program runs as a separate thread. All data from/to the user program are streamed via an UDP port.
@@ -26,6 +21,14 @@ This program runs as a separate thread. All data from/to the user program are st
 The user application can be written in any possible language, the only requirement is to send and receive UDP messages.
 
 This eliminates the need for the application programmer to understand how the Pluto is internally working.
+
+## Complete Networking Support
+
+The Pluto may be connected via USB or Ethernet
+
+The application talks to this program via Ethernet (via cable or local).
+
+So you can place the Pluto somewhere, connect it to ethernet, place this driver somewhere else and place your application even in another place. Or everything in one machine. There is no restriction.
 
 ## Prerequisites
 
