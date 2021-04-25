@@ -45,9 +45,9 @@ open file pluto.h and look for the section: INITIALISATION START. Enter all sett
 
 samples are sent to this program (or received) via UDP messages. A message MUST have the length of 32768 bytes with this format:
 ```
-Byte 0 ... I-sample LSB\\
-Byte 1 ... I-sample MSB\\
-Byte 2 ... Q-sample LSB\\
+Byte 0 ... I-sample LSB
+Byte 1 ... I-sample MSB
+Byte 2 ... Q-sample LSB
 Byte 3 ... Q-sample MSB
 ```
 
