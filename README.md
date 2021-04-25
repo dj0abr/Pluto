@@ -37,7 +37,7 @@ to install all required libraries run: ./prepare_ubuntu_pluto
 
 open file pluto.h and look for the section: INITIALISATION START. Enter all settings as required. (Tipp: if you enter the same UDP port for RX and TX then pluto will send what it receives, and therefore acts as a repeater. You have to choose different RX/TX freuquencies in this mode).
 
-2) compile the program: make
+2) compile the program: make 
 
 3) run the program (as a normal user):  ./pluto
 
