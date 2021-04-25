@@ -7,6 +7,8 @@ supported :
 - Pluto via Ethernet/USB adapter
 - full networking 
 - easy configuration in one file: pluto.h
+- no software fiddling required, just build and start
+- script included to install required libraries from repo and IIO from Github
 
 
 ## for LINUX only
