@@ -10,53 +10,76 @@
 #include <iio.h>  // libiio-dev must be installed
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
 
 #include "kmlib/km_helper.h"
 #include "kmlib/kmfifo.h"
+#include "kmlib/kmtimer.h"
 #include "udp/udp.h"
 
-#define UDP_SAMPLEPORT	49808
-#define UDPFRAG 60000			// size of an UDP fragment
+// ============ INITIALISATION START ================================
+// here are the values which should be set before using this program
 
-#define RX_DECIMATION 1
+// UDP settings
+#define UDP_TXSAMPLEPORT  40809			// samples from Pluto are send as UDP frames to this port
+#define UDP_RXSAMPLEPORT  40809			// samples received on this port are sent to pluto for transmission
 
-#define PLUTO_RXBUFSIZE 360000  // no of samples per buffer call
-#define PLUTO_TXBUFSIZE 1800000  // no of samples per buffer call, space for 0.5s
+// the pluto runs with its selected sample rate
+// these two settings reduce the load on the UDP interface, not the pluto itself
+#define RX_DECIMATION 32				// Decimation/Interpolation must be power of 2 !!!
+#define TX_INTERPOLATION 32
 
-#define kHz(n)  (n * 1000)
-#define MHz(n)  (n * 1000000)
+// Pluto settings
+#define SAMPRATE	2.4					// RX and TX sample rate in MHz
+#define RX_FREQ		145					// RX base frequency in MHz
+#define TX_FREQ		435					// TX base frequency in MHz
+#define RX_BW		2					// RX bandwidth in MHz
+#define TX_BW		0.1					// TX bandwidth in MHz
 
-#define CHKERR(n,s) {if(!n) {printf("%s",s); return 0;}}
+// ============ INITIALISATION END ==================================
 
-/* common RX and TX streaming params */
+#define UDPFRAG 32768			// size of an UDP fragment
+#define BUFSIZE (1024*1024)		// size of rx and tx data buffers
+
+#define MHZ(x) ((long long)(x*1000000.0 + .5))
+#define GHZ(x) ((long long)(x*1000000000.0 + .5))
+
+enum iodev { 
+	RX = 0, 
+	TX 
+};
+
 typedef struct _stream_cfg_ {
-	uint32_t lo_hz;     // Local oscillator frequency in Hz
-	uint32_t fs_hz;     // Baseband sample rate in Hz
-	uint32_t bw_hz;     // Analog banwidth in Hz
+	long long bw_hz; // Analog bandwidth in Hz
+	long long fs_hz; // Baseband sample rate in Hz
+	long long lo_hz; // Local oscillator frequency in Hz
 	const char* rfport; // Port name
-    double outpwr_dBm;  // output power of TX
 } stream_cfg;
+
 
 int pluto_get_IP(char *url_IP);
 int pluto_get_USB();
-int pluto_setup();
-int pluto_create_RXthread();
-int pluto_create_TXthread();
-int get_ad9361_streaming_channel(struct iio_context *ctx, int rxtx, struct iio_device *dev, int iq, struct iio_channel **chn);
-void pluto_close();
-int start_timer(int mSec, void(*timer_func_handler)(void));
-void stop_timer(int timer);
+bool get_ad9361_stream_ch(__notused struct iio_context *ctx, enum iodev d, struct iio_device *dev, int chid, struct iio_channel **chn);
+bool cfg_ad9361_streaming_ch(struct iio_context *ctx, stream_cfg *cfg, enum iodev type, int chid);
+bool get_ad9361_stream_dev(struct iio_context *ctx, enum iodev d, struct iio_device **dev);
+void pluto_setup();
+void runloop();
 
-extern char *pluto_ip;
-extern char pluto_context_name[];
-extern stream_cfg pluto_rxcfg;
-extern stream_cfg pluto_txcfg;
-extern int keeprunning;
-extern struct iio_device *rxdev;
-extern struct iio_device *txdev;
+extern char pluto_context_name[50];
+extern char pluto_ip[20];
+extern struct iio_context *ctx;
+extern struct iio_device *tx;
+extern struct iio_device *rx;
 extern struct iio_channel *rx0_i;
 extern struct iio_channel *rx0_q;
 extern struct iio_channel *tx0_i;
 extern struct iio_channel *tx0_q;
+extern struct iio_buffer  *rxbuf;
+extern struct iio_buffer  *txbuf;
+extern stream_cfg rxcfg;
+extern stream_cfg txcfg;
 extern char *myIP;
-extern int fifoid;
+extern int udpRXfifo;
+

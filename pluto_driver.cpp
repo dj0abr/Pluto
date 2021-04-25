@@ -23,22 +23,107 @@
 * =======================================
 * various subroutines to access the pluto
 * =======================================
-* 
+*
+* most subroutines from here:
+* https://raw.githubusercontent.com/analogdevicesinc/libiio/master/examples/ad9361-iiostream.c
+*
 */
 
 #include "pluto.h"
 
-int get_ad9361_streaming_channel(struct iio_context *ctx, int rxtx, struct iio_device *dev, int iq, struct iio_channel **chn)
+// static scratch mem for strings 
+static char tmpstr[64];
+
+// check return value of attr_write function 
+static void errchk(int v, const char* what) 
 {
-    char s[50];
-    sprintf(s,"voltage%d",iq);
+	if (v < 0) 
+	{ 
+		printf("Error %d writing to channel \"%s\"\nvalue may not be supported.\n", v, what); 
+	}
+}
 
-	*chn = iio_device_find_channel(dev, s, rxtx);
+// write attribute: long long int 
+static void wr_ch_lli(struct iio_channel *chn, const char* what, long long val)
+{
+	errchk(iio_channel_attr_write_longlong(chn, what, val), what);
+}
+
+// write attribute: string 
+static void wr_ch_str(struct iio_channel *chn, const char* what, const char* str)
+{
+	errchk(iio_channel_attr_write(chn, what, str), what);
+}
+
+// helper function generating channel names 
+static char* get_ch_name(const char* type, int id)
+{
+	snprintf(tmpstr, sizeof(tmpstr), "%s%d", type, id);
+	return tmpstr;
+}
+
+// returns ad9361 phy device 
+static struct iio_device* get_ad9361_phy(struct iio_context *ctx)
+{
+	struct iio_device *dev =  iio_context_find_device(ctx, "ad9361-phy");
+	return dev;
+}
+
+// finds AD9361 streaming IIO devices 
+bool get_ad9361_stream_dev(struct iio_context *ctx, enum iodev d, struct iio_device **dev)
+{
+	switch (d) {
+	case TX: *dev = iio_context_find_device(ctx, "cf-ad9361-dds-core-lpc"); return *dev != NULL;
+	case RX: *dev = iio_context_find_device(ctx, "cf-ad9361-lpc");  return *dev != NULL;
+	}
+    return 0;
+}
+
+// finds AD9361 streaming IIO channels 
+bool get_ad9361_stream_ch(__notused struct iio_context *ctx, enum iodev d, struct iio_device *dev, int chid, struct iio_channel **chn)
+{
+	*chn = iio_device_find_channel(dev, get_ch_name("voltage", chid), d == TX);
 	if (!*chn)
-    {
-        sprintf(s,"altvoltage%d",iq);
-		*chn = iio_device_find_channel(dev, s, rxtx);
-    }
+		*chn = iio_device_find_channel(dev, get_ch_name("altvoltage", chid), d == TX);
+	return *chn != NULL;
+}
 
-	return *chn==NULL?0:1;
+// finds AD9361 phy IIO configuration channel with id chid 
+static bool get_phy_chan(struct iio_context *ctx, enum iodev d, int chid, struct iio_channel **chn)
+{
+	switch (d) {
+	case RX: *chn = iio_device_find_channel(get_ad9361_phy(ctx), get_ch_name("voltage", chid), false); return *chn != NULL;
+	case TX: *chn = iio_device_find_channel(get_ad9361_phy(ctx), get_ch_name("voltage", chid), true);  return *chn != NULL;
+	}
+    return 0;
+}
+
+// finds AD9361 local oscillator IIO configuration channels 
+static bool get_lo_chan(struct iio_context *ctx, enum iodev d, struct iio_channel **chn)
+{
+	switch (d) {
+	 // LO chan is always output, i.e. true
+	case RX: *chn = iio_device_find_channel(get_ad9361_phy(ctx), get_ch_name("altvoltage", 0), true); return *chn != NULL;
+	case TX: *chn = iio_device_find_channel(get_ad9361_phy(ctx), get_ch_name("altvoltage", 1), true); return *chn != NULL;
+	}
+    return 0;
+}
+
+// applies streaming configuration through IIO 
+bool cfg_ad9361_streaming_ch(struct iio_context *ctx, stream_cfg *cfg, enum iodev type, int chid)
+{
+	struct iio_channel *chn = NULL;
+
+	// Configure phy and lo channels
+	printf("* Acquiring AD9361 phy channel %d\n", chid);
+	if (!get_phy_chan(ctx, type, chid, &chn)) {	return false; }
+	wr_ch_str(chn, "rf_port_select",     cfg->rfport);
+	wr_ch_lli(chn, "rf_bandwidth",       cfg->bw_hz);
+	wr_ch_lli(chn, "sampling_frequency", cfg->fs_hz);
+
+	// Configure LO channel
+	printf("* Acquiring AD9361 %s lo channel\n", type == TX ? "TX" : "RX");
+	if (!get_lo_chan(ctx, type, &chn)) { return false; }
+	wr_ch_lli(chn, "frequency", cfg->lo_hz);
+	return true;
 }

@@ -11,7 +11,6 @@ Because its one of my holy rules to NEVER use proprietary operating systems infe
 
 ## this is work in progress
 first working version: 
-#define CROSSBANDREPEATER
 everything received on the RX frequency will be sent out on the TX frequency
 can be tested with two USB transceivers
 
@@ -32,11 +31,24 @@ This eliminates the need for the application programmer to understand how the Pl
 
 to install all required libraries run: ./prepare_ubuntu_pluto
 
-## Build and run
+## Usage
 
-Building the software: make
+1) Configure the SDR parameters
 
-Run the software:  ./pluto
+open file pluto.h and look for the section: INITIALISATION START. Enter all settings as required. (Tipp: if you enter the same UDP port for RX and TX then pluto will send what it receives, and therefore acts as a repeater. You have to choose different RX/TX freuquencies in this mode).
 
-You can run it as normal use, no root access required.
+2) compile the program: make
+
+3) run the program (as a normal user):  ./pluto
+
+## Interface to external applications
+
+samples are sent to this program (or received) via UDP messages. A message MUST have the length of 32768 bytes with this format:
+
+Byte 0 ... I-sample LSB\\
+Byte 1 ... I-sample MSB\\
+Byte 2 ... Q-sample LSB\\
+Byte 3 ... Q-sample MSB
+
+
 

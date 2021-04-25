@@ -35,56 +35,27 @@
 
 #include "pluto.h"
 
-// === Pluto Definitions ===
-// IP Adress (leave empty if connected via USB)
-char *pluto_ip = {"192.168.10.99"};
+char *myIP;
+char pluto_ip[20] = {""}; // enter IP address if pluto is connected via ethernet
+int udpsock = 0;
+int udpRXfifo = 0;
 
-// RX configuration
-stream_cfg pluto_rxcfg = {
-    MHz(145),           // RX frequencxy (LO)
-    MHz(3.6),           // RX sample rate
-    kHz(1000),          // RX Bandwidth
-    "A_BALANCED",       // RF port
-    0.0                 // out power nut used
-};
-
-// TX configuration
-stream_cfg pluto_txcfg = {
-    MHz(435),   // TX frequencxy (LO)
-    MHz(3.6),           // TX sample rate
-    kHz(100),           // TX Bandwidth
-    "A",                // RF port
-    8.0                 // out power 0 dBm
-};
-
-// looks like TX and RX sampling rate have to be equal. To be checked !
-
-char *myIP = NULL;
-
-#define CROSSBANDREPEATER
-
-#ifdef CROSSBANDREPEATER
-int testsock;
-int fifoid;
-void rxfunc(uint8_t* pdata, int len, struct sockaddr_in* rxsock)
+void udprxfunc(uint8_t *buffer, int len, struct sockaddr_in* fromsock)
 {
-    //printf("udprx: %d bytes\n",len);
-    write_fifo(fifoid, pdata, len);
+	//printf("got %d\n",len);
+	write_fifo(udpRXfifo, buffer,len);
 }
-#endif 
 
 void close_program()
 {
-    printf("closing threads\n");
+    printf("got Ctrl-C\n");
     keeprunning = 0;
-    usleep(1000000);    // give the threads some time to stop
-    pluto_close();
-    printf("end program\n");
-    exit(0);
 }
 
-int main()
+int main ()
 {
+	int res = 0;
+
     install_signal_handler(close_program);
 
     // read own IP address
@@ -97,15 +68,15 @@ int main()
     printf("local IP adress: <%s>\n",myIP);
 
     // find a pluto connected via USB or Ethernet
-    int res = pluto_get_IP(pluto_ip);
+    /*int res = pluto_get_IP(pluto_ip);
     if(res) res = pluto_setup();
 
-    if(!res) 
+    if(!res) */
     {
-        printf("Pluto not found on ETH\n");
+        //printf("Pluto not found on ETH\n");
         // Pluto not found on Ethernet, try with USB
         res = pluto_get_USB();
-        if(res) res = pluto_setup();
+        //if(res) res = pluto_setup();
         if(!res)
         {
             printf("Pluto not found, exit program\n");
@@ -113,24 +84,40 @@ int main()
         }
     }
 
-    // create a FIFO for the transmitter
-    // all data from this fifo will be sent onthe TX frequency
-    fifoid = create_fifo(pluto_rxcfg.fs_hz/UDPFRAG+1, UDPFRAG); // space for 1s of samples
+	udpRXfifo = create_fifo(4*(4 * BUFSIZE/UDPFRAG), UDPFRAG);
+	UdpRxInit(&udpsock,UDP_RXSAMPLEPORT,udprxfunc,&keeprunning);
 
-    #ifdef CROSSBANDREPEATER
-    // TEST ONLY: self reception
-    UdpRxInit(&testsock, UDP_SAMPLEPORT, rxfunc, &keeprunning);
-    #endif
+	// RX stream config
+	rxcfg.bw_hz = MHZ(RX_BW);   	// rx rf bandwidth
+	rxcfg.fs_hz = MHZ(SAMPRATE);   	// rx sample rate
+	rxcfg.lo_hz = MHZ(RX_FREQ); 	// rx rf frequency
+	rxcfg.rfport = "A_BALANCED"; 	// port A (select for rf freq.)
 
-    // Pluto found, create RX and TX threads
-    pluto_create_RXthread();
-    if(res) pluto_create_TXthread();
-    if(!res) 
-    {
-        printf("connot create threads, exit program\n");
-        exit(0);
-    }
+	// TX stream config
+	txcfg.bw_hz = MHZ(TX_BW); 		// tx rf bandwidth
+	txcfg.fs_hz = MHZ(SAMPRATE);   	// tx sample rate (must be same as RX samp rate)
+	txcfg.lo_hz = MHZ(TX_FREQ); 	// tx rf frequency
+	txcfg.rfport = "A"; 			// port A (select for rf freq.)
 
-    // nothing to do, program can be terminated by Ctl-C
-    while(1) sleep(1);
-}
+	pluto_setup();
+
+	printf("* Starting IO streaming (press CTRL+C to cancel)\n");
+	while (keeprunning)
+	{
+		runloop();
+	}
+
+	if (rxbuf) iio_buffer_destroy(rxbuf); 
+	if (txbuf) iio_buffer_destroy(txbuf); 
+
+	if (rx0_i) iio_channel_disable(rx0_i);
+	if (rx0_q) iio_channel_disable(rx0_q);
+	if (tx0_i) iio_channel_disable(tx0_i);
+	if (tx0_q) iio_channel_disable(tx0_q);
+
+	if (ctx) iio_context_destroy(ctx);
+	printf("exit program\n");
+	exit(0);
+
+	return 0;
+} 
