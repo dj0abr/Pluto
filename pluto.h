@@ -25,6 +25,7 @@
 // UDP settings
 #define UDP_TXSAMPLEPORT  40809			// samples from Pluto are send as UDP frames to this port
 #define UDP_RXSAMPLEPORT  40809			// samples received on this port are sent to pluto for transmission
+#define UDP_STATUSPORT	  40810			// this program sends status information
 
 // the pluto runs with its selected sample rate
 // these two settings reduce the load on the UDP interface, not the pluto itself
