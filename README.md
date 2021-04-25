@@ -1,6 +1,14 @@
 # Pluto
 easy to use RX and TX handler for the Adalm - Pluto
 
+supported :
+
+- Pluto via USB connection
+- Pluto via Ethernet/USB adapter
+- full networking 
+- easy configuration in one file: pluto.h
+
+
 ## for LINUX only
 
 running on almost any Linux distribution and
