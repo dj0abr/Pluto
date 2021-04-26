@@ -31,18 +31,23 @@
 
 // the pluto runs with its selected sample rate
 // these two settings reduce the load on the UDP interface, not the pluto itself
-#define RX_DECIMATION 32				// Decimation/Interpolation must be power of 2 !!!
-#define TX_INTERPOLATION 32
+#define RX_DECIMATION 64				// Decimation/Interpolation must be power of 2 !!!
+#define TX_INTERPOLATION 64
 
 // Pluto settings
-#define SAMPRATE	2.4					// RX and TX sample rate in MHz
+#define SAMPRATE	3.072					// RX and TX sample rate in MHz
 #define RX_FREQ		145					// RX base frequency in MHz
-#define TX_FREQ		435					// TX base frequency in MHz
-#define RX_BW		2					// RX bandwidth in MHz
-#define TX_BW		0.1					// TX bandwidth in MHz
+#define TX_FREQ		1289.6				// TX base frequency in MHz
+#define RX_BW		0.5					// RX bandwidth in MHz
+#define TX_BW		2					// TX bandwidth in MHz
 
 // Pluto IP address
 #define PLUTO_IPADDRESS "192.168.10.26"	// if empty, use USB
+
+/*
+values in this setting:
+Samprate 3.072 MS/s and decimation of 64 = 48kS/s
+*/
 
 // ============ INITIALISATION END ==================================
 

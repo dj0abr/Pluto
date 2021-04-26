@@ -29,7 +29,7 @@
 #include "pluto.h"
 
 void send_buffer(uint8_t *pdat, int len);
-int16_t *getFifoData(int num);
+uint8_t *getFifoData(int num);
 
 void runloop()
 {
@@ -51,6 +51,16 @@ void runloop()
 	p_inc = iio_buffer_step(rxbuf);
 	p_end = (char *)iio_buffer_end(rxbuf);
 
+/*// TEST entfernern
+    int a=0;
+    for(int i=0; i<(BUFSIZE*p_inc); i++)
+    {
+        p_start[i] = a++;
+    }
+    // ===============
+*/
+
+
 	// sample buffer begins at p_start with length (BUFSIZE*p_inc) bytes
 	send_buffer((uint8_t *)p_start, (BUFSIZE*p_inc));
 
@@ -60,13 +70,22 @@ void runloop()
 
 	// ====== send samples topluto ======
     // get samples received via UDP
-	int16_t *pidata = getFifoData(BUFSIZE*4);
+	uint8_t *pidata = getFifoData(BUFSIZE*4);
     if(pidata != NULL)
     {
+        //showbytestring("RX2:",(uint8_t *)pidata,32,32);
         for(int i = 0; i < BUFSIZE; i++)
         {
-            ibuf[i] = pidata[i*2];
-            qbuf[i] = pidata[i*2+1];
+            uint16_t v;
+            v = pidata[i*4+1];
+            v <<= 8;
+            v += pidata[i*4];
+            ibuf[i] = (int16_t)v;
+
+            v = pidata[i*4+3];
+            v <<= 8;
+            v += pidata[i*4+2];
+            qbuf[i] = (int16_t)v;
         }
 
         // and put into pluto's tx buffer
@@ -75,8 +94,8 @@ void runloop()
         idx = 0;
         for (p_dat = (char *)iio_buffer_first(txbuf, tx0_i); p_dat < p_end; p_dat += p_inc) 
         {
-            ((int16_t*)p_dat)[0] = ibuf[idx];
-            ((int16_t*)p_dat)[1] = qbuf[idx];
+            ((int16_t*)p_dat)[0] = ibuf[idx]<<4;
+            ((int16_t*)p_dat)[1] = qbuf[idx]<<4;
             idx++;
         }	
     }
@@ -158,17 +177,16 @@ void send_buffer(uint8_t *pdat, int len)
     if(RX_DECIMATION > 1)
         free(ubuf);
 
-    //printf("sent %d fragments\n",frags);
+    //printf("%d frags sent\n",frags);
 }
 
 uint8_t udprxbuf[BUFSIZE*4];
-int16_t *iudprxbuf = (int16_t *)udprxbuf;
 int uidx = 0;
 
 // read num bytes from UDP-rx fifo
-int16_t *getFifoData(int num)
+uint8_t *getFifoData(int num)
 {
-    static int16_t rbuf[BUFSIZE*2];
+    static uint8_t rbuf[BUFSIZE*4];
 
     if(num > (int)sizeof(udprxbuf))
     {
@@ -195,34 +213,26 @@ int16_t *getFifoData(int num)
             uidx = 0;
             return NULL;
         }
+
         memcpy(udprxbuf + uidx, rxb, len);
         uidx += len;
         if(uidx >= num/TX_INTERPOLATION)
         {
-            // convert to i/q 16 bit values
-            // uidx is the received number of bytes 
-            uidx /=2;   // this is the number of samples
-            for(int i=0; i<uidx; i++)
+            //showbytestring("RX1:",(uint8_t *)udprxbuf,32,32);
+
+            int didx = 0;
+            for(int i=0; i<uidx; i+=4)
             {
                 for(int j=0; j<TX_INTERPOLATION; j++)
                 {
-                    /*
-                    // just for security, can be removed if all is working ok
-                    if((i*TX_INTERPOLATION+j) >= BUFSIZE*2) 
-                    {
-                        printf("%d %d rbuf size error %d vs %d\n",i,j,(i*TX_INTERPOLATION+j), BUFSIZE*2);
-                        exit(0);
-                    }
-                    if(i >= sizeof(udprxbuf))
-                    {
-                        printf("udprxbuf size error %d vs %d\n",i, sizeof(udprxbuf));
-                        exit(0);
-                    }
-                    */
-
-                    rbuf[i*TX_INTERPOLATION+j] = iudprxbuf[i];
+                    rbuf[didx++] = udprxbuf[i];
+                    rbuf[didx++] = udprxbuf[i+1];
+                    rbuf[didx++] = udprxbuf[i+2];
+                    rbuf[didx++] = udprxbuf[i+3];
                 }
             }
+
+            //showbytestring("RX2:",(uint8_t *)rbuf,32,32);
 
             uidx = 0;
             return rbuf;
