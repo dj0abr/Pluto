@@ -16,5 +16,6 @@ void showbytestring16(char *title, uint16_t *data, int anz);
 void showbytestring32(char* title, uint32_t* data, int anz);
 void showbytestringf(char* title, float* data, int totallen, int anz);
 char* ownIP();
+char *getConfigElement(char *elemname);
 
 extern int keeprunning;

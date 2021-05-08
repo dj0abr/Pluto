@@ -36,15 +36,14 @@
 #include "pluto.h"
 
 char *myIP;
-char destIP[20] = UDP_IPADDRESS;
-char pluto_ip[20] = PLUTO_IPADDRESS;
+char destIP[20] = {UDP_IPADDRESS};
+char plutoid[100] = {PLUTO_ID};
 int udpsock = 0;
 int udpRXfifo = 0;
 
 void udprxfunc(uint8_t *buffer, int len, struct sockaddr_in* fromsock)
 {
-	//printf("got %d\n",len);
-	write_fifo(udpRXfifo, buffer,len);
+	push_udp_data(buffer,len);
 }
 
 void close_program()
@@ -74,28 +73,45 @@ int main ()
 			exit(0);
 		}
 	}
+
+	// overwrite IP from info in config file
+	char *p = getConfigElement("UDP_IPADDRESS");
+	if(p && strlen(p) < 20)
+	{
+		printf("use IP from config file\n");
+		strcpy(myIP,p);
+	}
     printf("application IP adress: <%s>\n",myIP);
 
     // find a pluto connected via USB or Ethernet
-    res = pluto_get_IP(pluto_ip);
-    if(!res) 
-    {
-        // Pluto not found on Ethernet, try with USB
-        res = pluto_get_USB();
+	// overwrite the pulto_id with infos from a config file
+	p = getConfigElement("PLUTO_TX_NARROWBAND");
+	if(p && strlen(p) < 50)
+	{
+		printf("use Pluto ID from config file: <%s>\n",p);
+		strcpy(plutoid,p);
+	}
+
+	if(*plutoid != 'i')
+	{
+		// automatically search a pluto connected via USB
+		res = pluto_get_USB(plutoid);
         if(!res)
         {
-            printf("Pluto not found, exit program\n");
+            printf("no Pluto found on USB, exit program\n");
             exit(0);
         }
-    }
+	}
+
 	printf("Pluto IP/USB adress: <%s>\n",pluto_context_name);
 
-	udpRXfifo = create_fifo(4*(4 * BUFSIZE/UDPFRAG), UDPFRAG);
+	udpRXfifo = create_fifo(50, BUFSIZE*4);
 	UdpRxInit(&udpsock,UDP_RXSAMPLEPORT,udprxfunc,&keeprunning);
-	printf("Samples App->Pluto will be sent via UDP port UDP_RXSAMPLEPORT: %d\n",UDP_RXSAMPLEPORT);
-	printf("Samples Pluto->App will be sent via UDP port UDP_TXSAMPLEPORT: %d\n",UDP_TXSAMPLEPORT);
-	printf("Status messages will be sent via UDP to port UDP_STATUSPORT  : %d\n",UDP_STATUSPORT);
+	printf("Samples App->Pluto: UDP_RXSAMPLEPORT: %d\n",UDP_RXSAMPLEPORT);
+	printf("Samples Pluto->App: UDP_TXSAMPLEPORT: %d\n",UDP_TXSAMPLEPORT);
+	printf("Status messages:    UDP_STATUSPORT  : %d\n",UDP_STATUSPORT);
 
+	create_interpolator();
 	pluto_setup();
 
 	printf("Starting RX/TX streaming (press Ctrl+C to cancel)\n");
@@ -113,6 +129,8 @@ int main ()
 	if (tx0_q) iio_channel_disable(tx0_q);
 
 	if (ctx) iio_context_destroy(ctx);
+
+	destroy_interpolator();
 	printf("exit program\n");
 	exit(0);
 

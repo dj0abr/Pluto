@@ -125,7 +125,10 @@ bool cfg_ad9361_streaming_ch(struct iio_context *ctx, stream_cfg *cfg, enum iode
 	wr_ch_str(chn, "rf_port_select",     cfg->rfport);
 	wr_ch_lli(chn, "rf_bandwidth",       cfg->bw_hz);
 	wr_ch_lli(chn, "sampling_frequency", cfg->fs_hz);
-	wr_ch_double(chn, "hardwaregain", 0.0);
+	if(type == TX)
+	{
+		wr_ch_double(chn, "hardwaregain", txcfg.hwgain - 10);
+	}
 
 	// Configure LO channel
 	if (!get_lo_chan(ctx, type, &chn)) { return false; }

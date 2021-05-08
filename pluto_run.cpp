@@ -29,75 +29,91 @@
 #include "pluto.h"
 
 void send_buffer(uint8_t *pdat, int len);
-uint8_t *getFifoData(int num);
+void interpolate (uint8_t *src, uint8_t *dst, int numbytes);
+void create_interpolator();
+liquid_float_complex getMarker();
+
+firinterp_crcf TX_interpolator = NULL;
+
+nco_crcf tunenco = NULL;    // 100 Hz Marker
+nco_crcf upnco = NULL;      // up mixer
+
+int timestamp(char *s, int mode)
+{
+static unsigned long tstart;
+//static unsigned long tlast;
+
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+    if(mode == 1)
+    {
+        // init start time
+        tstart = tv.tv_sec * 1000000 + tv.tv_usec;
+        //printf("\nSTART: 0 us diff: %ld ms\n",(tstart-tlast)/1000);
+        //tlast = tstart;
+        return 0;
+    }
+    unsigned long tact = tv.tv_sec * 1000000 + tv.tv_usec;
+    int tdiff = (int)(tact-tstart) / 1000;
+    //printf("%s: %ld ms diff: %ld us\n",s,(tact - tstart)/1000,tact-tlast);
+    //tlast = tact;
+
+    return tdiff;
+}
 
 void runloop()
 {
 	ssize_t nbytes_rx, nbytes_tx;
-	char *p_dat, *p_end, *p_start;
+	char *p_dat, *p_start;
+    //char *p_end;
 	ptrdiff_t p_inc;
 
-	// ====== handle buffers ======
-	// Schedule TX buffer
-	nbytes_tx = iio_buffer_push(txbuf);
-	if (nbytes_tx < 0) { printf("Error pushing buf %d\n", (int) nbytes_tx); }
+	// ====== receive samples from pluto ======
+
+    timestamp("",1);
 
 	// Refill RX buffer
 	nbytes_rx = iio_buffer_refill(rxbuf);
 	if (nbytes_rx < 0) { printf("Error refilling buf %d\n",(int) nbytes_rx); }
 
-	// ====== receive samples from pluto ======
+    //timestamp("refill",0);
+
 	p_start = (char *)iio_buffer_first(rxbuf, rx0_i);
 	p_inc = iio_buffer_step(rxbuf);
-	p_end = (char *)iio_buffer_end(rxbuf);
+	//p_end = (char *)iio_buffer_end(rxbuf);
 
-/*// TEST entfernern
-    int a=0;
-    for(int i=0; i<(BUFSIZE*p_inc); i++)
-    {
-        p_start[i] = a++;
-    }
-    // ===============
-*/
+	// sample buffer begins at p_start with length (BUFSIZE * p_inc) bytes
+	send_buffer((uint8_t *)p_start, (RXBUFSIZE*p_inc));
+    //timestamp("send buffer",0);
 
-
-	// sample buffer begins at p_start with length (BUFSIZE*p_inc) bytes
-	send_buffer((uint8_t *)p_start, (BUFSIZE*p_inc));
-
-	static int16_t ibuf[BUFSIZE];
-	static int16_t qbuf[BUFSIZE];
-	int idx = 0;
-
-	// ====== send samples topluto ======
+	// ====== send samples to pluto ======
     // get samples received via UDP
-	uint8_t *pidata = getFifoData(BUFSIZE*4);
-    if(pidata != NULL)
+    static uint8_t pidata[BUFSIZE*4];
+    int lenfifo = read_fifo(udpRXfifo, pidata, BUFSIZE*4);
+    //timestamp("getFifoData",0);
+    if(lenfifo)
     {
-        //showbytestring("RX2:",(uint8_t *)pidata,32,32);
-        for(int i = 0; i < BUFSIZE; i++)
-        {
-            uint16_t v;
-            v = pidata[i*4+1];
-            v <<= 8;
-            v += pidata[i*4];
-            ibuf[i] = (int16_t)v;
+        p_dat = (char *)iio_buffer_first(txbuf, tx0_i);
+        memcpy(p_dat,pidata,BUFSIZE*4);
 
-            v = pidata[i*4+3];
-            v <<= 8;
-            v += pidata[i*4+2];
-            qbuf[i] = (int16_t)v;
-        }
-
-        // and put into pluto's tx buffer
-        p_inc = iio_buffer_step(txbuf);
-        p_end = (char *)iio_buffer_end(txbuf);
-        idx = 0;
-        for (p_dat = (char *)iio_buffer_first(txbuf, tx0_i); p_dat < p_end; p_dat += p_inc) 
-        {
-            ((int16_t*)p_dat)[0] = ibuf[idx]<<4;
-            ((int16_t*)p_dat)[1] = qbuf[idx]<<4;
-            idx++;
-        }	
+        //timestamp("pushing",0);
+        nbytes_tx = iio_buffer_push(txbuf);
+        //timestamp("pushed",0);
+	    if (nbytes_tx < 0) { printf("Error pushing buf %d\n", (int) nbytes_tx); }
+    }
+    else
+    {
+        //printf ("=== no data in fifo ===\n");
+        usleep(100);
+    }
+  
+    static int maxdur = 0;
+    int dur = timestamp("loop end",0);
+    if(dur > maxdur) maxdur = dur;
+    if(dur > 200)
+    {
+        printf("possible timing problem in pluto loop:\n");
+        printf("Pluto Loop duration %d max %d\n",dur,maxdur);
     }
 }
 
@@ -113,28 +129,38 @@ void send_buffer(uint8_t *pdat, int len)
     int ubuflen = len;
     uint8_t *ubuf = pdat;
 
-    if(RX_DECIMATION > 1)
+    // create the new buffer to send
+    ubuflen = len / RX_DECIMATION;
+    ubuf = (uint8_t *)malloc(ubuflen);
+
+    // fill this buffer with the samples
+    uint8_t *d = ubuf;
+    for(int i=0; i<len; i+=step)
     {
-        // create the new buffer to send
-        ubuflen = len / RX_DECIMATION;
-        ubuf = (uint8_t *)malloc(ubuflen);
+        // Pluto's RX resolution is 12 bits
+        // we are working with 16 bit samples, so a shift-4 is required
+        uint16_t smpi = pdat[i+1];
+        smpi<<=8;
+        smpi += pdat[i];
 
-        // fill this buffer with the samples
-        uint8_t *d = ubuf;
-        for(int i=0; i<len; i+=step)
+        uint16_t smpq = pdat[i+3];
+        smpq<<=8;
+        smpq += pdat[i+2];
+
+        smpi <<= 4;
+        smpq <<= 4;
+
+        // copy one sample (4 bytes)
+        *d++ = smpi & 0xff;
+        *d++ = smpi >> 8;
+        *d++ = smpq & 0xff;
+        *d++ = smpq >> 8;
+
+        // security check
+        if(d > (ubuf + ubuflen))
         {
-            // copy one sample (4 bytes)
-            *d++ = pdat[i];
-            *d++ = pdat[i+1];
-            *d++ = pdat[i+2];
-            *d++ = pdat[i+3];
-
-            // security check
-            if(d > (ubuf + ubuflen))
-            {
-                printf("ATTENTION: ubuf overrun. Stop program\n");
-                exit(0);
-            }
+            printf("ATTENTION: ubuf overrun. Stop program\n");
+            exit(0);
         }
     }
 
@@ -146,13 +172,15 @@ void send_buffer(uint8_t *pdat, int len)
     int bytesleft = ubuflen;
     uint8_t *p_dat = ubuf;
     uint8_t *p_end = ubuf + ubuflen;
+    char *plutorxip = myIP;
+    //char *plutorxip = "192.168.10.2"; // use to the the destination IP of the UDP server
     while(1)
     {
         if(bytesleft <= UDPFRAG)
         {
             //printf("last %d\n",bytesleft);
             // only a single udp fragment left, send all
-            sendUDP(myIP, UDP_TXSAMPLEPORT, p_dat, bytesleft);
+            sendUDP(plutorxip, UDP_TXSAMPLEPORT, p_dat, bytesleft);
             frags++;
             break;  // finished
         }
@@ -160,7 +188,7 @@ void send_buffer(uint8_t *pdat, int len)
         //printf("left %d\n",bytesleft);
 
         // send a complete udp fragment
-        sendUDP(myIP, UDP_TXSAMPLEPORT, p_dat, UDPFRAG);
+        sendUDP(plutorxip, UDP_TXSAMPLEPORT, p_dat, UDPFRAG);
         frags++;
         bytesleft -= UDPFRAG;
         p_dat += UDPFRAG;
@@ -174,68 +202,174 @@ void send_buffer(uint8_t *pdat, int len)
         }
     }
 
-    if(RX_DECIMATION > 1)
-        free(ubuf);
+    free(ubuf);
 
     //printf("%d frags sent\n",frags);
 }
 
-uint8_t udprxbuf[BUFSIZE*4];
-int uidx = 0;
+uint8_t plutorxbuf[BUFSIZE*4];
+int plutoidx = 0;
+uint8_t rxb[UDPFRAG];
+int rxbidx = -1;
+liquid_float_complex udpbuf[100000];
+int lenfifo = 0;
+#define MAXSIGNED32BIT  2000000000
 
-// read num bytes from UDP-rx fifo
-uint8_t *getFifoData(int num)
+// TX-Interpolator Filter Parameters
+// 44100 input rate for 2205 Sym/s = 20
+// change for other rates
+
+unsigned int k_SampPerSymb =            24;         // change in TX_INTERPOLATION
+unsigned int m_filterDelay_Symbols =    15;         // not too short for good filter
+float        beta_excessBW  =           0.2f;      // filter excess bandwidth factor
+float        tau_FracSymbOffset   =     -0.2f;      // fractional symbol offset
+
+void create_interpolator()
 {
-    static uint8_t rbuf[BUFSIZE*4];
+    // TX: Interpolator Filter
 
-    if(num > (int)sizeof(udprxbuf))
-    {
-        printf("udprxbuf too small %d vs %d\n",num,(int)sizeof(udprxbuf));
+    k_SampPerSymb = TX_INTERPOLATION;
+
+    // compute delay
+    while (tau_FracSymbOffset < 0) tau_FracSymbOffset += 1.0f;  // ensure positive tau
+    float g = k_SampPerSymb*tau_FracSymbOffset;                 // number of samples offset
+    int ds=(int)floorf(g);               // additional symbol delay
+    float dt = (g - (float)ds);     // fractional sample offset
+    // force dt to be in [0.5,0.5]
+    if (dt > 0.5f) 
+    {                
+        dt -= 1.0f;
+        ds++;
     }
-
-    // read from UDP rx fifo until we have the requested number of bytes
-    // if there is nothing in the fifo, return with NULL immediately
-    //printf("requested %d\n",num);
-    while(1)
+    
+    // calculate filter coeffs
+    unsigned int h_len_NumFilterCoeefs = 2 * k_SampPerSymb * m_filterDelay_Symbols + 1;
+    float h[50000];
+    if (h_len_NumFilterCoeefs >= 50000)
     {
-        uint8_t rxb[UDPFRAG];
-        int len = read_fifo(udpRXfifo, rxb, UDPFRAG);
-        if(len == 0) 
-        {
-            uidx = 0;
-            return NULL;
-        }
+        printf("h in h_len_NumFilterCoeefs too small, need %d\n", h_len_NumFilterCoeefs);
+        exit(0);
+    }
+    liquid_firdes_prototype(    LIQUID_FIRFILT_RRC,
+                                k_SampPerSymb,
+                                m_filterDelay_Symbols,
+                                beta_excessBW,
+                                dt,
+                                h);
+    // create the filter
+    TX_interpolator = firinterp_crcf_create(k_SampPerSymb,h,h_len_NumFilterCoeefs);
 
-        // we got data, copy into udp rx buffer
-        if(len > (int)(sizeof(udprxbuf) - uidx))
-        {
-            printf("fifo data does not fit, don't use fractional relations between UDPFRAG and BUFSIZE*4\n");
-            uidx = 0;
-            return NULL;
-        }
+    // create marker NCO
+    // set the marker to 100Hz
+    // the signal is shifted to mid:1500Hz in the receiver, so the marker
+    // must be on -1400 Hz (minus: assign sin to real and cos to imag)
+    float rad_per_sample = ((2.0f * (float)M_PI * 1400)/((float)SAMPRATE * 1e6));
+    tunenco = nco_crcf_create(LIQUID_NCO);
+    nco_crcf_set_phase(tunenco, 0.0f);
+    nco_crcf_set_frequency(tunenco, rad_per_sample);
 
-        memcpy(udprxbuf + uidx, rxb, len);
-        uidx += len;
-        if(uidx >= num/TX_INTERPOLATION)
-        {
-            //showbytestring("RX1:",(uint8_t *)udprxbuf,32,32);
+    // Upmixer
+    float RADIANS_PER_SAMPLE   = ((2.0f * (float)M_PI * 10000)/((float)SAMPRATE * 1e6));
+    upnco = nco_crcf_create(LIQUID_NCO);
+    nco_crcf_set_phase(upnco, 0.0f);
+    nco_crcf_set_frequency(upnco, RADIANS_PER_SAMPLE);
+}
 
-            int didx = 0;
-            for(int i=0; i<uidx; i+=4)
+void destroy_interpolator()
+{
+    if(TX_interpolator != NULL) firinterp_crcf_destroy(TX_interpolator);
+    TX_interpolator = NULL;
+    if(tunenco) nco_crcf_destroy(tunenco);
+    tunenco = NULL;
+    if(upnco) nco_crcf_destroy(upnco);
+    upnco = NULL;
+}
+
+liquid_float_complex getMarker()
+{
+    liquid_float_complex m;
+    if (tunenco)
+    {
+        nco_crcf_step(tunenco);
+        m.real = nco_crcf_sin(tunenco);
+        m.imag = nco_crcf_cos(tunenco);
+    }
+    else
+        printf("tunenco not initialized\n");
+
+    return m;
+}
+
+liquid_float_complex sampleToComplex(uint8_t *rxb)
+{
+    // first convert to signed 32 bit int
+    int32_t re = rxb[3];
+    re <<= 8;
+    re += rxb[2];
+    re <<= 8;
+    re += rxb[1];
+    re <<= 8;
+    re += rxb[0];
+
+    int32_t im = rxb[7];
+    im <<= 8;
+    im += rxb[6];
+    im <<= 8;
+    im += rxb[5];
+    im <<= 8;
+    im += rxb[4];
+
+    // now convert to complex number
+    liquid_float_complex c;
+    c.real = re / (float)MAXSIGNED32BIT;
+    c.imag = im / (float)MAXSIGNED32BIT;        
+    return c;
+}
+
+// push data into plutorxbuf until it is filled with BUFSIZE*4
+void push_udp_data(uint8_t *buffer, int len)
+{
+    for(int i=0; i<len; i+=8)
+    {
+        liquid_float_complex c = sampleToComplex(buffer+i);
+
+        // interpolate the sample by TX_INTERPOLATION
+        liquid_float_complex yout[TX_INTERPOLATION];
+        firinterp_crcf_execute(TX_interpolator, c, yout);
+        // the interpolation has created TX_INTERPOLATION new complex samples
+        
+        // fill these samples (with a marker) into plutorxbuf
+        for(int ipol=0; ipol<TX_INTERPOLATION; ipol++)
+        {
+            liquid_float_complex m = getMarker();
+
+            yout[ipol].real += (m.real * 0.07);
+            yout[ipol].imag += (m.imag * 0.07);
+
+            yout[ipol].real *= 0.5;
+            yout[ipol].imag *= 0.5;
+
+            if (yout[ipol].real > 1.0 || yout[ipol].real < -1.0) printf("real: %f\n", yout[ipol].real);
+            if (yout[ipol].imag > 1.0 || yout[ipol].imag < -1.0) printf("imag: %f\n", yout[ipol].imag);
+
+            int16_t pluto_re = (int16_t)(yout[ipol].real * 32767.0);
+            int16_t pluto_im = (int16_t)(yout[ipol].imag * 32767.0);
+
+            // and fill it to plutorxbuf
+            plutorxbuf[plutoidx++] = pluto_re & 0xff;
+            plutorxbuf[plutoidx++] = pluto_re >> 8;
+            plutorxbuf[plutoidx++] = pluto_im & 0xff;
+            plutorxbuf[plutoidx++] = pluto_im >> 8;
+
+            // check if plutorxbuf is full
+            if(plutoidx >= (BUFSIZE*4))
             {
-                for(int j=0; j<TX_INTERPOLATION; j++)
-                {
-                    rbuf[didx++] = udprxbuf[i];
-                    rbuf[didx++] = udprxbuf[i+1];
-                    rbuf[didx++] = udprxbuf[i+2];
-                    rbuf[didx++] = udprxbuf[i+3];
-                }
+                //timestamp("buf full",0);
+                //printf("Buffer full %d %d\n", plutoidx, BUFSIZE*4);
+                plutoidx = 0;
+                write_fifo(udpRXfifo, plutorxbuf, BUFSIZE*4);
+                //timestamp("",1);
             }
-
-            //showbytestring("RX2:",(uint8_t *)rbuf,32,32);
-
-            uidx = 0;
-            return rbuf;
         }
     }
 }

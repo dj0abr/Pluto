@@ -28,7 +28,7 @@ useful functions
 *
 */
 
-#include "km_helper.h"
+#include "../pluto.h"
 
 int keeprunning = 1;    // set to 0 at program end to exit all processes
 
@@ -173,4 +173,115 @@ char* ownIP()
 
     freeifaddrs(ifaddr);
     return ip;
+}
+
+char* cleanStr(char *s)
+{
+    if(s[0] > ' ') 
+    {
+        // remove trailing crlf
+        for(size_t j=0; j<strlen(s); j++)
+            if(s[j] == '\n' || s[j] == '\r') s[j] = 0;
+        return s;    // nothing to do
+    }
+
+    for(size_t i=0; i<strlen(s); i++)
+    {
+        if(s[i] >= '0')
+        {
+            // i is on first character
+            memmove(s,s+i,strlen(s)-i);
+            s[strlen(s)-i] = 0;
+            // remove trailing crlf
+            for(size_t j=0; j<strlen(s); j++)
+                if(s[j] == 'n' || s[j] == '\r') s[j] = 0;
+            return s;
+        }
+    }
+    return NULL;   // no text found in string
+}
+
+char *getword(char *s, int idx)
+{
+    if(idx == 0)
+    {
+        for(size_t i=0; i<strlen(s); i++)
+        {
+            if(s[i] < '0')
+            {
+                s[i] = 0;
+                return s;
+            }
+        }
+        return NULL;
+    }
+
+    for(size_t j=0; j<strlen(s); j++)
+    {
+        if(s[j] > ' ')
+        {
+            char *start = s+j;
+            for(size_t k=0; k<strlen(start); k++)
+            {
+                if(start[k] == ' ' || start[k] == '\r' || start[k] == '\n')
+                {
+                    start[k] = 0;
+                    return start;
+                }
+            }   
+            return start;
+        }
+    }
+
+    return NULL;
+}
+
+// read the value of an element from the config file
+// Format:
+// # ... comment
+// ElementName-space-ElementValue
+// the returned value is a static string and must be copied somewhere else
+// before this function can be called again
+char *getConfigElement(char *elemname)
+{
+    static char s[501];
+    int found = 0;
+
+    FILE *fr = fopen(CONFIGFILE,"rb");
+    if(!fr) 
+    {
+        printf("!!! Configuration file %s not found !!!\n",CONFIGFILE);
+        exit(0);
+    }
+
+    while(1)
+    {
+        if(fgets(s,500,fr) == NULL) break;
+        // remove leading SPC or TAB
+        if(cleanStr(s) == 0) continue;
+        // check if its a comment
+        if(s[0] == '#') continue;
+        // get word on index
+        char *p = getword(s,0);
+        if(!p) break;
+        if(strcmp(p, elemname) == 0)
+        {
+            char val[500];
+            if(*(s+strlen(p)+1) == 0) continue;
+            p = getword(s+strlen(p)+1,1);
+            if(!p) break;
+            // replace , with .
+            char *pkomma = strchr(p,',');
+            if(pkomma) *pkomma = '.';
+            strcpy(val,p);
+            strcpy(s,val);
+            found = 1;
+            break;
+        }
+
+    }
+
+    fclose(fr);
+    if(found == 0) return NULL;
+    return s;
 }

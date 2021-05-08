@@ -66,30 +66,70 @@ void sendfifostat()
 
 void pluto_setup()
 {
-	fifostat = start_timer(1000,sendfifostat);
+	int ret; 
+
+	fifostat = start_timer(50,sendfifostat);
+
+	// set default configuration from pluto.h
+
+	uint32_t srate = MHZ(SAMPRATE);
+	if(srate < 2100000) srate = 3000000;
 
 	// RX stream config
 	rxcfg.bw_hz = MHZ(RX_BW);   	// rx rf bandwidth
-	rxcfg.fs_hz = MHZ(SAMPRATE);   	// rx sample rate
+	rxcfg.fs_hz = srate;   			// rx sample rate
 	rxcfg.lo_hz = MHZ(RX_FREQ); 	// rx rf frequency
 	rxcfg.rfport = "A_BALANCED"; 	// port A (select for rf freq.)
 
 	// TX stream config
 	txcfg.bw_hz = MHZ(TX_BW); 		// tx rf bandwidth
-	txcfg.fs_hz = MHZ(SAMPRATE);   	// tx sample rate (must be same as RX samp rate)
+	txcfg.fs_hz = srate;   			// tx sample rate (must be same as RX samp rate)
 	txcfg.lo_hz = MHZ(TX_FREQ); 	// tx rf frequency
 	txcfg.rfport = "A"; 			// port A (select for rf freq.)
+	txcfg.hwgain = TX_GAIN;
+
+	// overwrite with configuration from a config file
+	char *p = getConfigElement("TX_FREQ");
+	if(p)
+	{
+		double v = atof(p);
+		if(v > 0) txcfg.lo_hz = MHZ(v);
+	}
+
+	p = getConfigElement("RX_FREQ");
+	if(p)
+	{
+		double v = atof(p);
+		if(v > 0) rxcfg.lo_hz = MHZ(v);
+	}
+
+	p = getConfigElement("TX_GAIN");
+	if(p)
+	{
+		double v = atof(p);
+		txcfg.hwgain = v;
+	}
+
+	printf("TX frequency: %lld Hz\n",txcfg.lo_hz);
+	printf("RX frequency: %lld Hz\n",rxcfg.lo_hz);
+	printf("TX Gain     : %f dBm\n",txcfg.hwgain);
+
+	// Initialize Pluto
 
 	ctx = iio_create_context_from_uri(pluto_context_name);
+	if(!ctx) {printf("Cannot find a pluto at: %s\n", pluto_context_name); exit(0);}
 
 	int devanz = iio_context_get_devices_count(ctx);
     if(devanz <= 0) 
     {
         printf("NO Pluto devices found\n");
+		exit(0);
     }
 
-	get_ad9361_stream_dev(ctx, TX, &tx);
-	get_ad9361_stream_dev(ctx, RX, &rx);
+	ret = get_ad9361_stream_dev(ctx, TX, &tx);
+	if(!ret) {printf("TX streaming device not found. Pluto error\n"); exit(0);}
+	ret = get_ad9361_stream_dev(ctx, RX, &rx);
+	if(!ret) {printf("TX streaming device not found. Pluto error\n"); exit(0);}
 
 	cfg_ad9361_streaming_ch(ctx, &rxcfg, RX, 0);
 	cfg_ad9361_streaming_ch(ctx, &txcfg, TX, 0);
@@ -99,12 +139,18 @@ void pluto_setup()
 	get_ad9361_stream_ch(ctx, TX, tx, 0, &tx0_i);
 	get_ad9361_stream_ch(ctx, TX, tx, 1, &tx0_q);
 
+	if(MHZ(SAMPRATE) < 2100000)
+	{
+		iio_device *dev9 = iio_context_find_device(ctx, "ad9361-phy");
+		ad9361_set_bb_rate(dev9,MHZ(SAMPRATE));
+	}
+
 	iio_channel_enable(rx0_i);
 	iio_channel_enable(rx0_q);
 	iio_channel_enable(tx0_i);
 	iio_channel_enable(tx0_q);
 
-	rxbuf = iio_device_create_buffer(rx, BUFSIZE, false);
+	rxbuf = iio_device_create_buffer(rx, RXBUFSIZE, false);
 	if (!rxbuf) {
 		perror("Could not create RX buffer");
 	}

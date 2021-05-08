@@ -74,6 +74,13 @@ void destroy_fifos()
 void write_fifo(int id, uint8_t *pdata, int len)
 {
     FIFOOBJ *pfo = &fifo[id];
+
+    if(len > pfo->maxelemlen)
+    {
+        printf("element too long\n");
+        return;
+    }
+
     LOCK(id);
 
     if (((pfo->wridx + 1) % pfo->maxelem) == pfo->rdidx)
@@ -88,7 +95,7 @@ void write_fifo(int id, uint8_t *pdata, int len)
 
     // insert new data
     void *dst = (void *)((uint8_t *)pfo->fifomem + pfo->wridx * pfo->maxelemlen);
-    memcpy(dst, pdata, pfo->maxelemlen);
+    memcpy(dst, pdata, len);
     if(++pfo->wridx >= pfo->maxelem) pfo->wridx = 0;
 
     UNLOCK(id);

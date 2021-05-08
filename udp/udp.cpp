@@ -110,6 +110,7 @@ void* threadfunction(void* param)
 }
 
 // send UDP message
+// this function can always be used without any initialisation
 void sendUDP(char *destIP, int destPort, uint8_t *pdata, int len)
 {
     int sockfd; 
