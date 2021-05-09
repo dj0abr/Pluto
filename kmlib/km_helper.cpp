@@ -29,6 +29,7 @@ useful functions
 */
 
 #include "../pluto.h"
+#include <pwd.h>
 
 int keeprunning = 1;    // set to 0 at program end to exit all processes
 
@@ -246,7 +247,23 @@ char *getConfigElement(char *elemname)
 {
     static char s[501];
     int found = 0;
+    char fn[1024];
+    
+    if(strlen(CONFIGFILE) > 512)
+    {
+        printf("config file path+name too long: %s\n",CONFIGFILE);
+        exit(0);
+    }
+    strcpy(fn,CONFIGFILE);
+    
+    if(fn[0] == '~')
+    {
+        struct passwd *pw = getpwuid(getuid());
+        const char *homedir = pw->pw_dir;
+        sprintf(fn,"%s/%s",homedir,CONFIGFILE);
+    }
 
+    printf("read Configuration file %s\n",CONFIGFILE);
     FILE *fr = fopen(CONFIGFILE,"rb");
     if(!fr) 
     {
