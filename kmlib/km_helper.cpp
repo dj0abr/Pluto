@@ -260,14 +260,14 @@ char *getConfigElement(char *elemname)
     {
         struct passwd *pw = getpwuid(getuid());
         const char *homedir = pw->pw_dir;
-        sprintf(fn,"%s/%s",homedir,CONFIGFILE);
+        sprintf(fn,"%s%s",homedir,CONFIGFILE+1);
     }
 
-    printf("read Configuration file %s\n",CONFIGFILE);
-    FILE *fr = fopen(CONFIGFILE,"rb");
+    printf("read Configuration file %s\n",fn);
+    FILE *fr = fopen(fn,"rb");
     if(!fr) 
     {
-        printf("!!! Configuration file %s not found !!!\n",CONFIGFILE);
+        printf("!!! Configuration file %s not found !!!\n",fn);
         exit(0);
     }
 
