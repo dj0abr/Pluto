@@ -299,6 +299,11 @@ char *getConfigElement(char *elemname)
     }
 
     fclose(fr);
-    if(found == 0) return NULL;
-    return s;
-}
+    printf("Element: <%s> ", elemname);
+    if (found == 0) 
+    {
+        printf("not found\n");
+        return NULL;
+    }
+    printf(":<%s>\n",s);
+    return s;}

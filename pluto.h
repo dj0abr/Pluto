@@ -26,7 +26,7 @@
 
 // config file location
 // enter directory and name of the configuration file
-#define CONFIGFILE		"~/mmbeacon/hsmodemLinux/ams_config.txt"
+#define CONFIGFILE		"~/ams_config.txt"
 
 // UDP settings
 //#define UDP_IPADDRESS	  "192.168.10.2"			// IP address of the application.
