@@ -1,0 +1,48 @@
+# Configuration file for the Pluto driver
+
+# UDP_IPADDRESS is the IP address of the computer where the application is running
+# if deactivated then all runs on the local PC
+# not used in crossband repeater mode, since this mode does not have an application
+UDP_IPADDRESS 127.0.0.1
+
+# === Pluto identification ===
+# Pluto connected via USB:
+#   SN of the pluto
+#   check the SN with this command: iio_info -s
+#   (look for the long ID number i.e.: 1044730a199700191f001800f3647c5341)
+# if only one pluto is conncted, leave this empty, the pluto will be detected automatically
+#
+# Pluto connected via Ethernet:
+#   enter Pluto's IP address in this format:  ip:192.168.1.2
+PLUTO_ID    ip:192.168.10.25
+
+# === TX frequency ===
+# this is the transmission frequency of the Pluto
+TX_FREQ     435.450
+
+# === RX freuquency ===
+# this is the RX frequency of the Pluto
+RX_FREQ     739.450
+
+# === TX power ===
+# this is the transmission power setting for the Pluto in dBm
+# maximum output power: 0
+# usually use something between -20 and -5
+# Attention: if using a PTT circuit on GPO0/GPO1 this value must be > -25 to get the PTT working
+TX_GAIN     -25
+
+# === RX and TX sample rate ===
+# enter in MHz
+SAMPLERATE  1.2
+
+# === TX and RX bandwidth ===
+# usually half the samplerate or a bit higher
+TX_BANDWIDTH    1
+RX_BANDWIDTH    1
+
+# === crossband repeater ===
+# 0 ... normal mode (using an application for sample processing)
+# 1 ... crossband repeater mode, send all data which are received without any change
+CROSSBANDREPEATER 1
+
+

@@ -245,6 +245,9 @@ char *getword(char *s, int idx)
 // before this function can be called again
 char *getConfigElement(char *elemname)
 {
+#ifndef CONFIGFILE
+    return NULL;
+#else
     static char s[501];
     int found = 0;
     char fn[1024];
@@ -263,7 +266,7 @@ char *getConfigElement(char *elemname)
         sprintf(fn,"%s%s",homedir,CONFIGFILE+1);
     }
 
-    printf("read Configuration file %s\n",fn);
+    //printf("read Configuration file %s\n",fn);
     FILE *fr = fopen(fn,"rb");
     if(!fr) 
     {
@@ -299,11 +302,13 @@ char *getConfigElement(char *elemname)
     }
 
     fclose(fr);
-    printf("Element: <%s> ", elemname);
+    //printf("Element: <%s> ", elemname);
     if (found == 0) 
     {
         printf("not found\n");
         return NULL;
     }
-    printf(":<%s>\n",s);
-    return s;}
+    //printf(":<%s>\n",s);
+    return s;
+#endif
+}

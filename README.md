@@ -5,11 +5,11 @@ supported :
 
 - Pluto via USB connection
 - Pluto via Ethernet/USB adapter
+- crossband repeater mode
 - full networking 
 - easy configuration in one file: pluto.h
 - no software fiddling required, just build and start
 - script included to install required libraries from repo and IIO from Github
-
 
 ## for LINUX only
 
@@ -63,6 +63,12 @@ Byte 1 ... I-sample MSB
 Byte 2 ... Q-sample LSB
 Byte 3 ... Q-sample MSB
 ```
+
+## Configuration
+
+the configuration of the default value can be done in the file pluto.h.
+Additionally the values can be entered in a config file, see pluto_config.txt for explanation.
+
 ## Synchronisation
 
 In an SDR transmitter the sample rate is defined by the SDR hardware. Therefore the applications needs to know when to send new samples to this program.

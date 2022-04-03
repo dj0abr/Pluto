@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -26,34 +27,36 @@
 
 // config file location
 // enter directory and name of the configuration file
-#define CONFIGFILE		"~/ams_config.txt"
+// if not defined, the default valus are used
+// see pluto_config.txt for details
+#define CONFIGFILE		"./pluto_config.txt"
 
 // UDP settings
-//#define UDP_IPADDRESS	  "192.168.10.2"			// IP address of the application.
+// IP address of the application.
 #define UDP_IPADDRESS ""							// if empty, the local IP will be used
 										
 #define UDP_TXSAMPLEPORT  40808			// samples from Pluto are send as UDP frames to this port
-#define UDP_RXSAMPLEPORT  40809			// samples received on this port are sent to pluto for transmission
+#define UDP_RXSAMPLEPORT  40808			// samples received on this port are sent to pluto for transmission
 #define UDP_STATUSPORT	  40810			// this program sends status information
 
 // the pluto runs with its selected sample rate
 // these two settings reduce the load on the UDP interface, not the pluto itself
-#define RX_DECIMATION 1					// Decimation must be power of 2 !!!
-#define TX_INTERPOLATION 750			// 7200...750, 6000...900
+#define RX_DECIMATION 2					// Decimation must be power of 2 !!!
+#define TX_INTERPOLATION 2
 
 // Pluto settings
-#define SAMPRATE	1.8					// RX and TX sample rate in MHz
-#define RX_FREQ		(1129.250)  // RX base frequency in MHz (10489.250 - 390*24)
-#define TX_FREQ		(1290.080 + 0.0015)   // TX base frequency in MHz (oder baseband offset)
-#define RX_BW		2.0					// RX bandwidth in MHz
-#define TX_BW		0.1					// TX bandwidth in MHz
-#define TX_GAIN		-10.0		// TX gain in dBm
+#define SAMPRATE	1.2					// RX and TX sample rate in MHz
+#define RX_FREQ		(739.5-0.05)  // RX base frequency in MHz
+#define TX_FREQ		(435.5-0.05)   // TX base frequency in MHz
+#define RX_BW		1.0					// RX bandwidth in MHz
+#define TX_BW		1.0					// TX bandwidth in MHz
+#define TX_GAIN		-25.0		// TX gain in dBm
 
 // Pluto identification
 // this ID can be an IP address in the format:   "ip:192.168.1.2"
 // or a serial number (shown with iio_info -s) in the format: "1044730a199700191f001800f3647c5341"
 // of if left empty, then it searches for a pluto connected via USB
-#define PLUTO_ID	""
+#define PLUTO_ID	"ip:192.168.10.25"
 
 // ============ INITIALISATION END ==================================
 
@@ -103,3 +106,4 @@ extern stream_cfg rxcfg;
 extern stream_cfg txcfg;
 extern char *myIP;
 extern int udpRXfifo;
+extern int crossbandrepeater;

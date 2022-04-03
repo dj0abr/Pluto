@@ -40,6 +40,7 @@ char destIP[20] = {UDP_IPADDRESS};
 char plutoid[100] = {PLUTO_ID};
 int udpsock = 0;
 int udpRXfifo = 0;
+int crossbandrepeater = 0;
 
 void udprxfunc(uint8_t *buffer, int len, struct sockaddr_in* fromsock)
 {
@@ -78,17 +79,16 @@ int main ()
 	char *p = getConfigElement("UDP_IPADDRESS");
 	if(p && strlen(p) < 20)
 	{
-		printf("use IP from config file\n");
+		printf("CONFIG file %s found, read values\n",CONFIGFILE);
 		strcpy(myIP,p);
 	}
-    printf("application IP adress: <%s>\n",myIP);
+    printf("application IP adress:   %s\n",myIP);
 
     // find a pluto connected via USB or Ethernet
-	// overwrite the pulto_id with infos from a config file
-	p = getConfigElement("PLUTO_TX_NARROWBAND");
+	// overwrite the pluto_id with infos from a config file
+	p = getConfigElement("PLUTO_ID");
 	if(p && strlen(p) < 50)
 	{
-		printf("use Pluto ID from config file: <%s>\n",p);
 		strcpy(plutoid,p);
 	}
 
@@ -102,14 +102,26 @@ int main ()
             exit(0);
         }
 	}
+	else
+		strcpy(pluto_context_name,plutoid);
 
-	printf("Pluto IP/USB adress: <%s>\n",pluto_context_name);
+	printf("Pluto IP/USB adress:     %s\n",pluto_context_name);
+
+	p = getConfigElement("CROSSBANDREPEATER");
+	if(p && strlen(p) < 10)
+	{
+		if(*p == '1')
+		{
+			printf("crossband repeater mode: ON\n");
+			crossbandrepeater = 1;
+		} 
+	}
 
 	udpRXfifo = create_fifo(50, BUFSIZE*4);
 	UdpRxInit(&udpsock,UDP_RXSAMPLEPORT,udprxfunc,&keeprunning);
-	printf("Samples App->Pluto: UDP_RXSAMPLEPORT: %d\n",UDP_RXSAMPLEPORT);
-	printf("Samples Pluto->App: UDP_TXSAMPLEPORT: %d\n",UDP_TXSAMPLEPORT);
-	printf("Status messages:    UDP_STATUSPORT  : %d\n",UDP_STATUSPORT);
+	printf("App->Pluto: UDP Port:    %d\n",UDP_RXSAMPLEPORT);
+	printf("Pluto->App: UDP Port:    %d\n",UDP_TXSAMPLEPORT);
+	printf("Status messages Port:    %d\n",UDP_STATUSPORT);
 
 	create_interpolator();
 	pluto_setup();

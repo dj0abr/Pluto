@@ -65,8 +65,6 @@ void runloop()
 {
 	ssize_t nbytes_rx, nbytes_tx;
 	char *p_dat, *p_start;
-    //char *p_end;
-	ptrdiff_t p_inc;
 
 	// ====== receive samples from pluto ======
 
@@ -79,17 +77,38 @@ void runloop()
     //timestamp("refill",0);
 
 	p_start = (char *)iio_buffer_first(rxbuf, rx0_i);
-	p_inc = iio_buffer_step(rxbuf);
-	//p_end = (char *)iio_buffer_end(rxbuf);
 
-	// sample buffer begins at p_start with length (BUFSIZE * p_inc) bytes
-	send_buffer((uint8_t *)p_start, (RXBUFSIZE*p_inc));
+	// sample buffer begins at p_start with length (BUFSIZE * 4) bytes
+    if(crossbandrepeater == 0)
+        send_buffer((uint8_t *)p_start, (RXBUFSIZE*4));
+        
     //timestamp("send buffer",0);
 
 	// ====== send samples to pluto ======
     // get samples received via UDP
     static uint8_t pidata[BUFSIZE*4];
-    int lenfifo = read_fifo(udpRXfifo, pidata, BUFSIZE*4);
+    int lenfifo = 1;
+    if(crossbandrepeater == 0)
+    {
+        lenfifo = read_fifo(udpRXfifo, pidata, BUFSIZE*4);
+    }
+    else
+    {
+        // crossband repeater mode, send whats received
+        uint8_t *pr = (uint8_t *)p_start;
+        for(int smp=0; smp<(BUFSIZE*4); smp+=2)
+        {
+            // Plutos's RX is 12 bit
+            // so shift left by 4 before sending
+            uint16_t v = pr[smp];
+            v<<=8;
+            v += pr[smp+1];
+
+            pidata[smp] = v >> 8;
+            pidata[smp+1] = v &0xff;
+        }
+    }
+
     //timestamp("getFifoData",0);
     if(lenfifo)
     {
@@ -107,6 +126,8 @@ void runloop()
         usleep(100);
     }
   
+    /*
+    // activate for loop timing check
     static int maxdur = 0;
     int dur = timestamp("loop end",0);
     if(dur > maxdur) maxdur = dur;
@@ -114,7 +135,7 @@ void runloop()
     {
         printf("possible timing problem in pluto loop:\n");
         printf("Pluto Loop duration %d max %d\n",dur,maxdur);
-    }
+    }*/
 }
 
 // split data into chucks which can be sent via UDP
@@ -173,7 +194,6 @@ void send_buffer(uint8_t *pdat, int len)
     uint8_t *p_dat = ubuf;
     uint8_t *p_end = ubuf + ubuflen;
     char *plutorxip = myIP;
-    //char *plutorxip = "192.168.10.2"; // use to the the destination IP of the UDP server
     while(1)
     {
         if(bytesleft <= UDPFRAG)

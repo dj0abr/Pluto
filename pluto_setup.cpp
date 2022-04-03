@@ -72,7 +72,8 @@ void pluto_setup()
 
 	// set default configuration from pluto.h
 
-	uint32_t srate = MHZ(SAMPRATE);
+	uint32_t orig_srate = MHZ(SAMPRATE);
+	uint32_t srate = orig_srate;
 	if(srate < 2100000) srate = 3000000;
 
 	// RX stream config
@@ -110,9 +111,36 @@ void pluto_setup()
 		txcfg.hwgain = v;
 	}
 
-	printf("TX frequency: %lld Hz\n",txcfg.lo_hz);
-	printf("RX frequency: %lld Hz\n",rxcfg.lo_hz);
-	printf("TX Gain     : %f dBm\n",txcfg.hwgain);
+	p = getConfigElement("TX_BANDWIDTH");
+	if(p)
+	{
+		double v = atof(p);
+		txcfg.bw_hz = MHZ(v);
+	}
+
+	p = getConfigElement("RX_BANDWIDTH");
+	if(p)
+	{
+		double v = atof(p);
+		rxcfg.bw_hz = MHZ(v);
+	}
+
+	p = getConfigElement("SAMPLERATE");
+	if(p)
+	{
+		double v = atof(p);
+		orig_srate = srate = MHZ(v);
+		if(srate < 2100000) srate = 3000000;
+		txcfg.fs_hz = srate;
+		rxcfg.fs_hz = srate;
+	}
+
+	printf("TX frequency:            %.6g MHz\n",(double)txcfg.lo_hz / 1e6);
+	printf("RX frequency:            %.6g MHz\n",(double)rxcfg.lo_hz / 1e6);
+	printf("TX Bandwidth:            %.6g MHz\n",(double)txcfg.bw_hz / 1e6);
+	printf("RX Bandwidth:            %.6g MHz\n",(double)rxcfg.bw_hz / 1e6);
+	printf("RX/TX Srate :            %.6g MHz\n",(double)orig_srate / 1e6);
+	printf("TX Gain     :            %.6g dBm\n",txcfg.hwgain);
 
 	// Initialize Pluto
 
@@ -139,10 +167,10 @@ void pluto_setup()
 	get_ad9361_stream_ch(ctx, TX, tx, 0, &tx0_i);
 	get_ad9361_stream_ch(ctx, TX, tx, 1, &tx0_q);
 
-	if(MHZ(SAMPRATE) < 2100000)
+	if(orig_srate < 2100000)
 	{
 		iio_device *dev9 = iio_context_find_device(ctx, "ad9361-phy");
-		ad9361_set_bb_rate(dev9,MHZ(SAMPRATE));
+		ad9361_set_bb_rate(dev9,orig_srate);
 	}
 
 	iio_channel_enable(rx0_i);
