@@ -29,7 +29,7 @@ RX_FREQ     739.450
 # maximum output power: 0
 # usually use something between -20 and -5
 # Attention: if using a PTT circuit on GPO0/GPO1 this value must be > -25 to get the PTT working
-TX_GAIN     -25
+TX_GAIN     0
 
 # === RX and TX sample rate ===
 # enter in MHz

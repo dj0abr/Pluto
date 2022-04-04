@@ -1,11 +1,51 @@
 sudo apt-get update
 sudo apt-get -y install build-essential libxml2-dev bison flex libcdk5-dev cmake libaio-dev libusb-1.0-0-dev libserialport-dev libavahi-client-dev
-sudo apt-get -y install libad9361-dev
-git clone https://github.com/analogdevicesinc/libiio.git
-cd libiio
-mkdir build
+sudo apt-get -y install libad9361-dev autoconf
+
+# copy prebuild libraries to lib folder
+cd /tmp
+mkdir -p qo100trx_libraries
+cd qo100trx_libraries
+
+if [ ! -d "libiio" ] ; then
+    git clone https://github.com/dj0abr/libiio.git
+    cd libiio
+else
+    cd libiio
+    git pull https://github.com/dj0abr/libiio.git
+fi
+mkdir -p build
 cd build
 cmake ../
 make -j$(nproc)
 sudo make install
+cd ..
+cd ..
 
+if [ ! -d "libad9361-iio" ] ; then
+    git clone https://github.com/dj0abr/libad9361-iio
+    cd libad9361-iio
+else
+    cd libad9361-iio
+    git pull https://github.com/dj0abr/libad9361-iio
+fi
+mkdir -p build
+cd build
+cmake ../
+make -j$(nproc)
+sudo make install
+cd ..
+cd ..
+
+if [ ! -d "liquid-dsp" ] ; then
+    git clone https://github.com/dj0abr/liquid-dsp
+    cd liquid-dsp
+else
+    cd liquid-dsp
+    git pull https://github.com/dj0abr/liquid-dsp
+fi
+./bootstrap.sh
+./configure
+make -j$(nproc)
+sudo make install
+cd ..
